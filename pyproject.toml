@@ -1,0 +1,14 @@
+[project]
+name = "usedcarpricepredictionsystem"
+version = "0.1.0"
+description = "工业级二手车价格预测系统 — 涵盖数据清洗、特征工程与建模 Pipeline"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.10.9",
+    "notebook>=7.5.6",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+]

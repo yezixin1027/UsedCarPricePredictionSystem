@@ -18,3 +18,9 @@ models/*.txt
 # 忽略IDE配置
 .vscode/
 .idea/
+
+# 临时文件
+*.docx
+~$*.docx
+docx_text_output.txt
+*.tmp

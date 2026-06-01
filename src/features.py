@@ -7,17 +7,54 @@ from sklearn.preprocessing import StandardScaler
 
 
 class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
+    """高评分特征工程器。
+
+    完成以下变换：
+    1. 衍生特征构建 —— 年均行驶里程 (annual_milage) 与马力密度 (power_density)
+    2. 五折嵌套隔离目标编码 (OOF Target Encoding) —— 品牌高基数特征稠密化
+    3. One-Hot 编码 —— 低基数分类变量
+    4. Z-score 标准化 —— 连续数值特征无量纲化
+
+    Parameters
+    ----------
+    n_splits : int
+        交叉验证折数 (default=5)。
+    smoothing_weight : float
+        目标编码拉普拉斯平滑权重。
+        编码值 = (n*mean + weight*global_mean) / (n + weight)，
+        有效防止小样本品牌因极端价位产生过拟合噪音 (default=10)。
+    """
     def __init__(self, n_splits=5, smoothing_weight=10):
-        """
-        n_splits: 交叉验证折数
-        smoothing_weight: 目标编码平滑权重（拉普拉斯平滑思想），防止小样本品牌因极端价位产生过拟合噪音
-        """
         self.n_splits = n_splits
         self.smoothing_weight = smoothing_weight
         self.scaler = StandardScaler()
         self.brand_target_map_ = {}
         self.global_mean_ = None
+        self._pd_fallback_ = None
         self.numerical_cols = ['milage', 'engine_hp', 'engine_liter', 'car_age']
+        self.derived_cols = ['annual_milage', 'power_density']
+
+    def _build_derived_features(self, X):
+        """构建衍生复合特征，消除 fit/transform 之间的重复代码。
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            含 milage, car_age, engine_hp, engine_liter 列的 DataFrame。
+
+        Returns
+        -------
+        pd.DataFrame
+            添加了 annual_milage 与 power_density 列的副本。
+        """
+        X_out = X.copy()
+        # 衍生特征①：年均行驶里程（物理磨损强度）
+        X_out['annual_milage'] = X_out['milage'] / (X_out['car_age'] + 1)
+        # 衍生特征②：马力密度（比功率 / 升功率）
+        X_out['power_density'] = X_out['engine_hp'] / X_out['engine_liter'].replace(0, np.nan)
+        pd_fallback = X_out['engine_hp'].median() / max(X_out['engine_liter'].median(), 0.1)
+        X_out['power_density'] = X_out['power_density'].replace([np.inf, -np.inf], np.nan).fillna(pd_fallback)
+        return X_out
 
     def fit(self, X, y):
         X_copy = X.copy().reset_index(drop=True)
@@ -36,17 +73,17 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
                     brand_stats['count'] + self.smoothing_weight)
         self.brand_target_map_ = smoothed_vals.to_dict()
 
-        # 预先拟合包含衍生复合特征的标准化转换器
-        extended_cols = self.numerical_cols + ['annual_milage']
-        X_copy['annual_milage'] = X_copy['milage'] / (X_copy['car_age'] + 1)
+        # 预先拟合包含两个衍生复合特征的标准化转换器
+        X_copy = self._build_derived_features(X_copy)
+        extended_cols = self.numerical_cols + self.derived_cols
         self.scaler.fit(X_copy[extended_cols])
         return self
 
     def transform(self, X, y=None):
         X_out = X.copy().reset_index(drop=True)
 
-        # 1. 核心衍生创新特征：年均行驶里程数（物理磨损强度）
-        X_out['annual_milage'] = X_out['milage'] / (X_out['car_age'] + 1)
+        # 1. 构建衍生复合特征
+        X_out = self._build_derived_features(X_out)
 
         # 2. 五折嵌套隔离交叉验证目标编码机制
         if y is not None:
@@ -74,14 +111,14 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
             # 测试集直接无缝静态映射
             X_out['brand_encoded'] = X_out['brand'].map(self.brand_target_map_).fillna(self.global_mean_)
 
-        # 低基数类别特征独热编码化
+        # 3. 低基数类别特征独热编码化
         ohe_cols = [c for c in ['fuel_type', 'accident_status'] if c in X_out.columns]
         if ohe_cols:
             # 强行限定 dtype=int，从源头上斩断输出 True/False 布尔类型的隐患
             X_out = pd.get_dummies(X_out, columns=ohe_cols, drop_first=True, dtype=int)
 
-        # 3. 连续特征 Z-score 标准化转换
-        extended_cols = self.numerical_cols + ['annual_milage']
+        # 4. 连续特征 Z-score 标准化转换
+        extended_cols = self.numerical_cols + self.derived_cols
         X_out[extended_cols] = self.scaler.transform(X_out[extended_cols])
 
         if 'brand' in X_out.columns:

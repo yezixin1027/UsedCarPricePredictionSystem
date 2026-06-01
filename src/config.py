@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 # 路径配置
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +13,7 @@ TEST_PATH = os.path.join(RAW_DATA_DIR, "test.csv")
 
 # 全局参数
 RANDOM_SEED = 42
-CURRENT_YEAR = 2026  # 基于2026年计算车龄
+CURRENT_YEAR = datetime.now().year  # 动态获取当前年份计算车龄
 
 # 目标变量
 TARGET = "price"

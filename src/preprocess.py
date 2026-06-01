@@ -19,13 +19,17 @@ class AdvancedUsedCarPreprocessor(BaseEstimator, TransformerMixin):
         self.brand_iqr_bounds_ = {}  # 严格在训练集拟合时存储各品牌的局部异常值边界
 
     def _standardize_brands(self, brand_series):
-        """清洗文本拼写歧义与非标准缩写"""
-        return brand_series.astype(str).str.strip().replace({
+        """清洗文本拼写歧义与非标准缩写，保留原始 NaN"""
+        result = brand_series.astype(str).str.strip()
+        result = result.replace({
             'Land': 'Land Rover',
             'Mercedes': 'Mercedes-Benz',
             'VW': 'Volkswagen',
             'Chevy': 'Chevrolet'
         })
+        # 还原原始 NaN 位置，防止 "nan" 字符串被当作合法品牌
+        result[brand_series.isna()] = np.nan
+        return result
 
     def _extract_engine(self, engine_series):
         """多级正则自适应文本特征抽取（解决乱码与异构文本描述）"""

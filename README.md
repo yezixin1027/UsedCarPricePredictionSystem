@@ -231,7 +231,7 @@ X_test_final.to_csv("data/processed/test_features.csv", index=False)
 ## 数据流图
 
 ```
-┌──────────────┐     ┌─────────────────────────┐     ┌──────────────────────────┐
+┌──────────────┐     ┌──────────────────────────┐     ┌──────────────────────────┐
 │  data/raw/   │ ──► │ AdvancedUsedCarPreprocessor │ ──► │ HighScoreFeatureEngineer │
 │ train.csv    │     │  · 品牌清洗               │     │  · 年均里程衍生           │
 │ test.csv     │     │  · 引擎特征抽取           │     │  · OOF 目标编码           │
@@ -257,20 +257,4 @@ X_test_final.to_csv("data/processed/test_features.csv", index=False)
 - [ ] 开发 Flask / FastAPI 推理服务接口
 - [ ] 添加 CI/CD 自动化测试与部署
 
----
 
-## 作者
-
-- **Ye** — [@yezixin1027](https://github.com/yezixin1027)
-
----
-
-## 许可证
-
-本项目基于 MIT 许可证开源，详见 [LICENSE](LICENSE) 文件（若有）。
-
----
-
-<p align="center">
-  <sub>Built with ❤️ for Data Science</sub>
-</p>

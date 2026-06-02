@@ -4,6 +4,7 @@
 ==========================================
 
 阶段划分:
+  阶段 0  — 环境校验 (检查数据文件是否存在)
   阶段 1  — 数据加载
   阶段 2  — 高级预处理 (AdvancedUsedCarPreprocessor)
   阶段 3  — 特征工程 (HighScoreFeatureEngineer)

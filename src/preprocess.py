@@ -135,8 +135,8 @@ class AdvancedUsedCarPreprocessor(BaseEstimator, TransformerMixin):
         if 'model_year' in X_out.columns:
             X_out['car_age'] = CURRENT_YEAR - X_out['model_year']
 
-        # 10. 特征裁剪，降维剔除高度冗余和超高基数文本
-        drop_cols = ['engine', 'model_year', 'transmission', 'ext_col', 'int_col', 'model']
+        # 10. 特征裁剪：保留 model 列（高价值车型信息，后续做 Target Encoding）
+        drop_cols = ['engine', 'model_year', 'transmission', 'ext_col', 'int_col']
         X_out = X_out.drop(columns=[c for c in drop_cols if c in X_out.columns])
 
         return X_out

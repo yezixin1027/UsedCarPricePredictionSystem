@@ -8,12 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+.claude
 
 # 忽略数据文件
 data/
 models/*.pkl
 models/*.txt
-
+models/*.csv
 
 # 忽略IDE配置
 .vscode/
@@ -23,4 +24,4 @@ models/*.txt
 *.docx
 ~$*.docx
 docx_text_output.txt
-*.tmp
+*.tmpcatboost_info

@@ -155,7 +155,7 @@ def permutation_importance(model, X, y, feature_names, n_repeats=10, cv=5):
 
 # 使用 RidgeCV 自动选择最优 alpha
 alphas = np.logspace(-2, 3, 20)
-ridge_cv = RidgeCV(alphas=alphas, store_cv_values=True)
+ridge_cv = RidgeCV(alphas=alphas)
 
 pi_df = permutation_importance(ridge_cv, X_matrix, y_log.values, feature_names,
                                 n_repeats=10, cv=5)
@@ -255,10 +255,11 @@ for ax_idx, (metric, title) in enumerate([
     y_pos = range(len(feat_list))
     colors_b = ['#ED7D31' if f in derived_features else '#4472C4' for f in feat_list]
 
-    ax.errorbar(means, y_pos, xerr=[errors_low, errors_high],
-                fmt='o', capsize=5, capthick=1.5, elinewidth=1.5,
-                color='#333333', markersize=8, markerfacecolor=colors_b,
-                markeredgecolor='white', markeredgewidth=1)
+    for x, y, xlo, xhi, mc in zip(means, y_pos, errors_low, errors_high, colors_b):
+        ax.errorbar(x, y, xerr=[[xlo], [xhi]],
+                    fmt='o', capsize=5, capthick=1.5, elinewidth=1.5,
+                    color='#333333', markersize=8, markerfacecolor=mc,
+                    markeredgecolor='white', markeredgewidth=1)
     ax.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
     ax.set_yticks(y_pos)
     ax.set_yticklabels(feat_list, fontsize=10)
@@ -281,7 +282,7 @@ print("[Section C] 偏依赖图 (Partial Dependence Plots)")
 print("=" * 60)
 
 # 基于 RidgeCV 模型计算 PDP
-ridge_pdp = RidgeCV(alphas=alphas, store_cv_values=True)
+ridge_pdp = RidgeCV(alphas=alphas)
 ridge_pdp.fit(X_matrix, y_log.values)
 
 # 只对衍生特征 + 关键基础特征做 PDP
@@ -401,11 +402,13 @@ lows_p = [bootstrap_results[f]['pearson_ci_low'] for f in feat_list]
 highs_p = [bootstrap_results[f]['pearson_ci_high'] for f in feat_list]
 y_pos2 = range(len(feat_list))
 colors_p = ['#ED7D31' if f in derived_features else '#4472C4' for f in feat_list]
-ax2.errorbar(means_p, y_pos2,
-             xerr=[[m - l for m, l in zip(means_p, lows_p)],
-                   [h - m for m, h in zip(means_p, highs_p)]],
-             fmt='o', capsize=4, elinewidth=1.2, color='#333333',
-             markersize=7, markerfacecolor=colors_p, markeredgecolor='white', markeredgewidth=0.8)
+for x, y, xlo, xhi, mc in zip(means_p, y_pos2,
+                               [m - l for m, l in zip(means_p, lows_p)],
+                               [h - m for m, h in zip(means_p, highs_p)],
+                               colors_p):
+    ax2.errorbar(x, y, xerr=[[xlo], [xhi]],
+                 fmt='o', capsize=4, elinewidth=1.2, color='#333333',
+                 markersize=7, markerfacecolor=mc, markeredgecolor='white', markeredgewidth=0.8)
 ax2.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
 ax2.set_yticks(y_pos2)
 ax2.set_yticklabels(feat_list, fontsize=9)

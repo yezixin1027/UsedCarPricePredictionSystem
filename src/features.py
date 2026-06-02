@@ -7,73 +7,122 @@ from sklearn.preprocessing import StandardScaler
 
 
 class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
-    """高评分特征工程器。
+    """高评分特征工程器（增强版）。
 
     完成以下变换：
-    1. 衍生特征构建 —— 年均行驶里程 (annual_milage) 与马力密度 (power_density)
-    2. 五折嵌套隔离目标编码 (OOF Target Encoding) —— 品牌高基数特征稠密化
-    3. One-Hot 编码 —— 低基数分类变量
-    4. Z-score 标准化 —— 连续数值特征无量纲化
+    1. 衍生特征构建 —— 年均行驶里程、马力密度、车龄平方、里程对数等
+    2. 交互特征 —— brand_encoded × car_age、brand_encoded × milage 等
+    3. 五折嵌套隔离目标编码 —— brand 与 model 两列高基数特征稠密化
+    4. One-Hot 编码 —— 低基数分类变量
+    5. Z-score 标准化 —— 连续数值特征无量纲化
 
     Parameters
     ----------
     n_splits : int
         交叉验证折数 (default=5)。
     smoothing_weight : float
-        目标编码拉普拉斯平滑权重。
-        编码值 = (n*mean + weight*global_mean) / (n + weight)，
-        有效防止小样本品牌因极端价位产生过拟合噪音 (default=10)。
+        目标编码拉普拉斯平滑权重 (default=10)。
     """
+
     def __init__(self, n_splits=5, smoothing_weight=10):
         self.n_splits = n_splits
         self.smoothing_weight = smoothing_weight
         self.scaler = StandardScaler()
         self.brand_target_map_ = {}
+        self.model_target_map_ = {}
         self.global_mean_ = None
-        self._pd_fallback_ = None
         self.numerical_cols = ['milage', 'engine_hp', 'engine_liter', 'car_age']
-        self.derived_cols = ['annual_milage', 'power_density']
+        # 扩展衍生特征列表
+        self.derived_cols = ['annual_milage', 'power_density',
+                             'car_age_squared', 'milage_log',
+                             'hp_per_year', 'engine_torque_proxy']
 
     def _build_derived_features(self, X):
-        """构建衍生复合特征，消除 fit/transform 之间的重复代码。
+        """构建衍生复合特征与交互特征。
 
-        Parameters
-        ----------
-        X : pd.DataFrame
-            含 milage, car_age, engine_hp, engine_liter 列的 DataFrame。
-
-        Returns
-        -------
-        pd.DataFrame
-            添加了 annual_milage 与 power_density 列的副本。
+        新增特征（共 6 个）：
+        - annual_milage: 年均行驶里程（磨损强度）
+        - power_density: 马力密度（升功率）
+        - car_age_squared: 车龄平方（非线性折旧）
+        - milage_log: 里程对数（幂律校正）
+        - hp_per_year: 年均马力保有量
+        - engine_torque_proxy: 排量×马力（动力综合指标）
         """
         X_out = X.copy()
-        # 衍生特征①：年均行驶里程（物理磨损强度）
+
+        # === 基础衍生特征 ===
+        # ① 年均行驶里程（物理磨损强度）
         X_out['annual_milage'] = X_out['milage'] / (X_out['car_age'] + 1)
-        # 衍生特征②：马力密度（比功率 / 升功率）
+
+        # ② 马力密度（比功率 / 升功率）
         X_out['power_density'] = X_out['engine_hp'] / X_out['engine_liter'].replace(0, np.nan)
         pd_fallback = X_out['engine_hp'].median() / max(X_out['engine_liter'].median(), 0.1)
-        X_out['power_density'] = X_out['power_density'].replace([np.inf, -np.inf], np.nan).fillna(pd_fallback)
+        X_out['power_density'] = X_out['power_density'].replace(
+            [np.inf, -np.inf], np.nan).fillna(pd_fallback)
+
+        # === 新增非线性 / 交互特征 ===
+        # ③ 车龄平方（捕获折旧加速 / 减缓效应，前 3 年折旧最快）
+        X_out['car_age_squared'] = X_out['car_age'] ** 2
+
+        # ④ 里程对数（里程与价格通常呈对数而非线性关系）
+        X_out['milage_log'] = np.log1p(X_out['milage'])
+
+        # ⑤ 年均马力保有量（衡量发动机老化速度）
+        X_out['hp_per_year'] = X_out['engine_hp'] / (X_out['car_age'] + 1)
+
+        # ⑥ 排量 × 马力（动力总成综合指标，近似扭矩）
+        X_out['engine_torque_proxy'] = X_out['engine_hp'] * X_out['engine_liter']
+
         return X_out
+
+    def _add_interaction_features(self, X):
+        """在目标编码完成之后，构建 brand_encoded 与连续特征的交互项。
+
+        必须在 brand_encoded 列已存在时调用。
+        """
+        X_out = X.copy()
+        if 'brand_encoded' not in X_out.columns:
+            return X_out
+
+        # 品牌 × 车龄交互（不同品牌的折旧速度不同）
+        X_out['brand_x_car_age'] = X_out['brand_encoded'] * X_out['car_age']
+
+        # 品牌 × 里程交互（不同品牌的里程敏感性不同）
+        X_out['brand_x_milage'] = X_out['brand_encoded'] * X_out['milage_log']
+
+        # 品牌 × 马力密度交互（运动品牌 vs 家用品牌对动力的定价差异）
+        X_out['brand_x_power'] = X_out['brand_encoded'] * X_out['power_density']
+
+        return X_out
+
+    def _smooth_encode(self, group_stats, global_mean, weight):
+        """拉普拉斯平滑目标编码的通用计算。
+
+        编码值 = (n * mean + weight * global_mean) / (n + weight)
+        """
+        return (group_stats['count'] * group_stats['mean'] + weight * global_mean) / \
+               (group_stats['count'] + weight)
 
     def fit(self, X, y):
         X_copy = X.copy().reset_index(drop=True)
-        y_log = np.log1p(y).reset_index(drop=True)
+        y_log = np.log1p(y)
 
         self.global_mean_ = y_log.mean()
 
-        # 计算训练集全局的品牌目标编码映射（融入平滑权重，防止孤本品牌泄露）
+        # ---- 品牌目标编码映射（融入平滑权重）----
         df_temp = X_copy.copy()
         df_temp['target'] = y_log
         brand_stats = df_temp.groupby('brand')['target'].agg(['count', 'mean'])
+        self.brand_target_map_ = self._smooth_encode(
+            brand_stats, self.global_mean_, self.smoothing_weight).to_dict()
 
-        # 核心数学亮点：拉普拉斯平滑目标编码 (Smoothed Target Encoding)
-        # 编码值 = (品牌样本量 * 品牌均值 + 平滑权重 * 全局均值) / (品牌样本量 + 平滑权重)
-        smoothed_vals = (brand_stats['count'] * brand_stats['mean'] + self.smoothing_weight * self.global_mean_) / (
-                    brand_stats['count'] + self.smoothing_weight)
-        self.brand_target_map_ = smoothed_vals.to_dict()
+        # ---- 车型目标编码映射（新增）----
+        if 'model' in df_temp.columns:
+            model_stats = df_temp.groupby('model')['target'].agg(['count', 'mean'])
+            self.model_target_map_ = self._smooth_encode(
+                model_stats, self.global_mean_, self.smoothing_weight).to_dict()
 
-        # 预先拟合包含两个衍生复合特征的标准化转换器
+        # 预先拟合标准化转换器（包含全部衍生特征）
         X_copy = self._build_derived_features(X_copy)
         extended_cols = self.numerical_cols + self.derived_cols
         self.scaler.fit(X_copy[extended_cols])
@@ -85,46 +134,64 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
         # 1. 构建衍生复合特征
         X_out = self._build_derived_features(X_out)
 
-        # 2. 五折嵌套隔离交叉验证目标编码机制
+        # 2. 五折嵌套隔离 OOF 目标编码 — brand
         if y is not None:
             y_log = np.log1p(y).reset_index(drop=True)
             kf = KFold(n_splits=self.n_splits, shuffle=True, random_state=42)
-            oof_encoded = pd.Series(index=X_out.index, dtype=float)
 
+            # --- brand OOF 编码 ---
+            oof_brand = pd.Series(index=X_out.index, dtype=float)
             for train_idx, val_idx in kf.split(X_out):
                 fold_train_x = X_out.iloc[train_idx]
                 fold_train_y = y_log.iloc[train_idx]
-
                 fold_df = fold_train_x.copy()
                 fold_df['target'] = fold_train_y
-
-                # 局部折内同样引入平滑权重计算
                 f_stats = fold_df.groupby('brand')['target'].agg(['count', 'mean'])
-                f_smoothed = (f_stats['count'] * f_stats['mean'] + self.smoothing_weight * self.global_mean_) / (
-                            f_stats['count'] + self.smoothing_weight)
-                f_map = f_smoothed.to_dict()
+                f_smoothed = self._smooth_encode(
+                    f_stats, self.global_mean_, self.smoothing_weight)
+                oof_brand.iloc[val_idx] = X_out.iloc[val_idx]['brand'].map(f_smoothed)
+            X_out['brand_encoded'] = oof_brand.fillna(self.global_mean_)
 
-                oof_encoded.iloc[val_idx] = X_out.iloc[val_idx]['brand'].map(f_map)
-
-            X_out['brand_encoded'] = oof_encoded.fillna(self.global_mean_)
+            # --- model OOF 编码（新增）---
+            if 'model' in X_out.columns:
+                oof_model = pd.Series(index=X_out.index, dtype=float)
+                # 为 model 列单独做一次 KFold（与 brand 共用同样的划分）
+                kf2 = KFold(n_splits=self.n_splits, shuffle=True, random_state=43)
+                for train_idx, val_idx in kf2.split(X_out):
+                    fold_train_x = X_out.iloc[train_idx]
+                    fold_train_y = y_log.iloc[train_idx]
+                    fold_df = fold_train_x.copy()
+                    fold_df['target'] = fold_train_y
+                    f_stats = fold_df.groupby('model')['target'].agg(['count', 'mean'])
+                    f_smoothed = self._smooth_encode(
+                        f_stats, self.global_mean_, self.smoothing_weight * 2)  # model 样本更少，更大平滑
+                    oof_model.iloc[val_idx] = X_out.iloc[val_idx]['model'].map(f_smoothed)
+                X_out['model_encoded'] = oof_model.fillna(self.global_mean_)
         else:
-            # 测试集直接无缝静态映射
-            X_out['brand_encoded'] = X_out['brand'].map(self.brand_target_map_).fillna(self.global_mean_)
+            # 测试集：直接静态映射
+            X_out['brand_encoded'] = X_out['brand'].map(
+                self.brand_target_map_).fillna(self.global_mean_)
+            if 'model' in X_out.columns:
+                X_out['model_encoded'] = X_out['model'].map(
+                    self.model_target_map_).fillna(self.global_mean_)
 
-        # 3. 低基数类别特征独热编码化
+        # 3. 构建交互特征（必须在 brand_encoded 生成之后）
+        X_out = self._add_interaction_features(X_out)
+
+        # 4. 低基数类别特征独热编码化
         ohe_cols = [c for c in ['fuel_type', 'accident_status'] if c in X_out.columns]
         if ohe_cols:
-            # 强行限定 dtype=int，从源头上斩断输出 True/False 布尔类型的隐患
             X_out = pd.get_dummies(X_out, columns=ohe_cols, drop_first=True, dtype=int)
 
-        # 4. 连续特征 Z-score 标准化转换
+        # 5. 连续特征 Z-score 标准化
         extended_cols = self.numerical_cols + self.derived_cols
         X_out[extended_cols] = self.scaler.transform(X_out[extended_cols])
 
-        if 'brand' in X_out.columns:
-            X_out = X_out.drop(columns=['brand'])
+        # 6. 清理文本列（已被编码替代）
+        drop_text_cols = ['brand', 'model']
+        X_out = X_out.drop(columns=[c for c in drop_text_cols if c in X_out.columns])
 
-        # 格式安全终审：确保全矩阵数据类型无缝契合各流派算法后端
+        # 7. 格式安全终审
         for col in X_out.columns:
             if X_out[col].dtype == bool:
                 X_out[col] = X_out[col].astype(int)

@@ -2,8 +2,10 @@
 # ================================
 # 4.3 模型性能对比分析
 #
-# 多维度对比 (雷达图): R2, 1/MAE, 1/RMSE, 1/MAPE, 1/训练时间
-# 算法对比表: 核心假设、优势、劣势、适用场景
+# 多维度对比:
+#   雷达图: R2, 1/MAE, 1/RMSE, 1/MAPE, 1/训练时间
+#   算法对比表: 6种模型的核心假设、优势、劣势、适用场景
+#   业务解读: 最优MAE在真实价格空间中的实际意义
 import os, sys
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import PROCESSED_TRAIN_PATH, MODEL_DIR, FIGURES_DIR
+from config import PROCESSED_TRAIN_PATH, FIGURES_DIR
 from src.train import train_all_models, train_stacking, plot_radar_chart, generate_comparison_table
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -34,11 +36,12 @@ def run_model_comparison():
     X = train_df.drop(columns=['log_price'])
     y = np.expm1(train_df['log_price'].values)
 
-    # 五模型对比
+    # 5种独立模型对比
     results = train_all_models(X, y)
 
-    # Stacking
+    # Stacking 集成 (5基模型 → ElasticNet)
     stacking = train_stacking(X, y)
+    safe_print(f"\n  Stacking R2={stacking['R2_mean']:.4f} MAE={stacking['MAE_mean']:,.0f}")
 
     # 合并结果
     stack_row = pd.DataFrame([{'model': 'STACKING', 'R2_mean': stacking['R2_mean'],
@@ -53,19 +56,20 @@ def run_model_comparison():
     safe_print(f"\n  [OK] 雷达图: {radar_path}")
 
     # 定量对比表
-    safe_print(f"\n  {'Model':<18} {'R2':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>10} {'训练时间':>10}")
-    safe_print(f"  {'─' * 75}")
+    safe_print(f"\n  {'Model':<18} {'R2':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>10}")
+    safe_print(f"  {'─' * 65}")
     for _, row in plot_df.iterrows():
         safe_print(f"  {row['model']:<18} {row['R2_mean']:>8.4f} {row['MAE_mean']:>12,.0f} "
-                   f"{row['RMSE_mean']:>12,.0f} {row['MAPE_mean']:>9.1f}% "
-                   f"{row['train_time_s']:>8.1f}s")
+                   f"{row['RMSE_mean']:>12,.0f} {row['MAPE_mean']:>9.1f}%")
 
     # 业务解读
     best_mae = plot_df['MAE_mean'].min()
+    best_model = plot_df.loc[plot_df['MAE_mean'].idxmin(), 'model']
     safe_print(f"\n[业务解读]")
-    safe_print(f"  最优MAE = {best_mae:,.0f} 元: 模型对一辆车的估价平均偏差约{best_mae:,.0f}元")
+    safe_print(f"  最优模型: {best_model}, MAE = {best_mae:,.0f} 元")
     safe_print(f"  在二手车均价~30,000元的市场中, 误差率约{best_mae/30000*100:.1f}%")
     safe_print(f"  实际意义: 估价偏差在可接受范围, 可用作定价参考辅以人工复核")
+
     safe_print(f"\n  [OK] 4.3 模型对比完成")
     return plot_df
 

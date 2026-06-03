@@ -1,67 +1,65 @@
 # src/models.py
 from sklearn.linear_model import Ridge, ElasticNet
 from sklearn.ensemble import RandomForestRegressor, StackingRegressor
+from sklearn.neighbors import KNeighborsRegressor
 import lightgbm as lgb
-import xgboost as xgb
-import catboost as cb
 from config import MODEL_HYPERPARAMS
 
 
 class UsedCarModelFactory:
     """可配置式二手车预测模型工厂 (Factory Pattern)
 
-    支持 5 种独立模型 + Stacking 集成：
-    - ridge:        岭回归 (L2 正则化，基线模型)
-    - random_forest: 随机森林 (Bagging 集成)
-    - lightgbm:     LightGBM (直方图 Boosting)
-    - xgboost:      XGBoost (预排序 Boosting)
-    - catboost:     CatBoost (有序 Boosting)
-    - stacking:     Stacking 集成 (LGB+XGB+Cat 基模型 + ElasticNet 元学习器)
+    6 种模型 (5 种范式 + 集成):
+      线性·L2:     ridge
+      线性·L1+L2:  elastic_net
+      Bagging树:   random_forest
+      Boosting树:  lightgbm
+      距离:        knn
+      集成:        stacking (Ridge+EN+RF+LGB+KNN → ElasticNet)
     """
 
     @staticmethod
     def create_model(model_name: str, **custom_kwargs):
-        """根据模型名称动态实例化算法对象，允许外部传入覆盖参数"""
         model_name = model_name.lower().strip()
         params = MODEL_HYPERPARAMS.get(model_name, {}).copy()
         params.update(custom_kwargs)
 
         if model_name == "ridge":
             return Ridge(**params)
+        elif model_name == "elastic_net":
+            return ElasticNet(**params)
         elif model_name == "random_forest":
             return RandomForestRegressor(**params)
         elif model_name == "lightgbm":
             return lgb.LGBMRegressor(**params)
-        elif model_name == "xgboost":
-            return xgb.XGBRegressor(**params)
-        elif model_name == "catboost":
-            return cb.CatBoostRegressor(**params)
+        elif model_name == "knn":
+            return KNeighborsRegressor(**params)
         elif model_name == "stacking":
-            # 使用当前最优参数构建基模型
-            lgb_params = MODEL_HYPERPARAMS.get('lightgbm', {}).copy()
-            xgb_params = MODEL_HYPERPARAMS.get('xgboost', {}).copy()
-            cat_params = MODEL_HYPERPARAMS.get('catboost', {}).copy()
+            # 5种范式基模型: 线性(L2+L1L2) + Bagging + Boosting + 距离
+            ridge_p  = MODEL_HYPERPARAMS.get('ridge', {}).copy()
+            en_p     = MODEL_HYPERPARAMS.get('elastic_net', {}).copy()
+            rf_p     = MODEL_HYPERPARAMS.get('random_forest', {}).copy()
+            lgb_p    = MODEL_HYPERPARAMS.get('lightgbm', {}).copy()
+            knn_p    = MODEL_HYPERPARAMS.get('knn', {}).copy()
 
-            # 清理子进程冲突参数
-            for p in [lgb_params, xgb_params]:
-                p.pop('verbose', None)
-                p.pop('n_jobs', None)
-            cat_params['verbose'] = False
+            lgb_p.pop('verbose', None)
+            lgb_p.pop('n_jobs', None)
+            rf_p.pop('n_jobs', None)
+            knn_p.pop('n_jobs', None)
 
             base_estimators = [
-                ('lgb', lgb.LGBMRegressor(**lgb_params)),
-                ('xgb', xgb.XGBRegressor(**xgb_params)),
-                ('cat', cb.CatBoostRegressor(**cat_params)),
+                ('ridge', Ridge(**ridge_p)),
+                ('en',    ElasticNet(**en_p)),
+                ('rf',    RandomForestRegressor(**rf_p)),
+                ('lgb',   lgb.LGBMRegressor(**lgb_p)),
+                ('knn',   KNeighborsRegressor(**knn_p)),
             ]
 
-            # 元学习器: ElasticNet (L1+L2 正则化) — 兼顾特征选择与稳定性
             return StackingRegressor(
                 estimators=base_estimators,
-                final_estimator=ElasticNet(
-                    alpha=0.1, l1_ratio=0.5, max_iter=2000, random_state=42),
-                cv=5,
-                n_jobs=-1,
-                passthrough=True  # 原始特征直达元学习器
+                final_estimator=ElasticNet(alpha=0.1, l1_ratio=0.5,
+                                            max_iter=5000, random_state=42),
+                cv=5, n_jobs=-1, passthrough=True
             )
         else:
             raise ValueError(f"[Error] 未注册模型: {model_name}")

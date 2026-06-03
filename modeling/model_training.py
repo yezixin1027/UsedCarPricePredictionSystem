@@ -2,7 +2,13 @@
 # =============================
 # 4.1-4.2 模型选择与训练
 #
-# 5种模型: Ridge, Random Forest, LightGBM, XGBoost, CatBoost
+# 6种模型 (5种范式):
+#   线性: Ridge(L2), ElasticNet(L1+L2)
+#   Bagging: RandomForest
+#   Boosting: LightGBM
+#   距离: KNN
+#   集成: Stacking (5基模型→ElasticNet)
+#
 # 统一使用 5折分层CV (按价格分位数stratify) 确保公平对比
 import os, sys, time
 import numpy as np
@@ -19,9 +25,9 @@ def safe_print(msg):
 
 
 def run_model_training():
-    """运行 4.1-4.2 模型训练"""
+    """运行 4.1-4.2 模型选择与训练"""
     safe_print("=" * 60)
-    safe_print("  4.1-4.2 模型选择与训练")
+    safe_print("  4.1-4.2 模型选择与训练 (6种模型 / 5种范式)")
     safe_print("=" * 60)
 
     train_df = pd.read_csv(PROCESSED_TRAIN_PATH)
@@ -29,6 +35,7 @@ def run_model_training():
     y = np.expm1(train_df['log_price'].values)
 
     safe_print(f"\n[数据] {X.shape[0]:,} 样本 x {X.shape[1]} 特征")
+    safe_print(f"[模型] {len(AVAILABLE_MODELS)}种: {AVAILABLE_MODELS}")
 
     # 算法对比表
     safe_print(f"\n[4.1] 算法核心假设与适用条件:")
@@ -36,11 +43,10 @@ def run_model_training():
     for _, row in table.iterrows():
         safe_print(f"  {row['算法']}")
         safe_print(f"    类型: {row['模型类型']}")
-        safe_print(f"    假设: {row['核心假设'][:80]}...")
         safe_print(f"    优势: {row['优势']}")
 
-    # 5模型训练
-    safe_print(f"\n[4.2] 五模型训练 (5-fold Stratified CV)")
+    # 训练
+    safe_print(f"\n[4.2] 模型训练 (5-fold Stratified CV)")
     results = train_all_models(X, y, models=AVAILABLE_MODELS, cv_folds=5)
 
     safe_print(f"\n  {'Model':<18} {'R2':>8} {'+/-':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>8}")

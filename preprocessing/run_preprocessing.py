@@ -54,7 +54,7 @@ def run_preprocessing():
     # ---- s3: 特征工程 (3.3) ----
     safe_print("\n[3.3] 特征工程 (HighScoreFeatureEngineer)")
     safe_print("  衍生特征(4): annual_milage, power_density, car_age_squared, hp_per_year")
-    safe_print("  交互特征(1): brand_x_milage")
+    safe_print("  交互特征: 无 (brand_x_milage 经 MI 验证无效, 已移除)")
     safe_print("  目标编码(2): brand_encoded, model_encoded")
     engineer = HighScoreFeatureEngineer()
     X_train_feat = engineer.fit_transform(X_train_clean, y_train_raw)

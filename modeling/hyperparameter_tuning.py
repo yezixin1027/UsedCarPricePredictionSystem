@@ -2,8 +2,12 @@
 # =====================================
 # 4.2 超参数调优
 #
-# Ridge/RF: 手动网格搜索 (解释参数变化对模型的影响)
-# LGB/XGB/Cat: Optuna 贝叶斯优化
+# 每个模型独立调优:
+#   Ridge:       手动网格 (alpha)
+#   ElasticNet:  手动网格 (alpha × l1_ratio)
+#   RandomForest: 手动网格 (n_estimators → max_depth)
+#   LightGBM:    Optuna 贝叶斯优化 (8参数)
+#   KNN:         手动网格 (k × weights)
 #
 # 对 ≥2 个关键参数绘制参数-性能曲线
 import os, sys
@@ -18,10 +22,10 @@ def safe_print(msg):
 
 
 def run_hyperparameter_tuning(n_trials=30):
-    """运行 4.2 超参数调优"""
+    """运行 4.2 超参数调优 (6模型)"""
     safe_print("=" * 60)
-    safe_print("  4.2 超参数调优")
-    safe_print(f"  Optuna trials: {n_trials}")
+    safe_print("  4.2 超参数调优 (6模型独立调优)")
+    safe_print(f"  Optuna trials: {n_trials} (LightGBM)")
     safe_print("=" * 60)
 
     from src.tune_all_models import run_full_tuning

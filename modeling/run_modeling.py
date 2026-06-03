@@ -1,12 +1,12 @@
 # modeling/run_modeling.py
 # ========================
-# 模型构建与评估 — 阶段入口
+#  模型构建与评估 — 阶段入口
 #
 # 按顺序执行:
-#   s1: 5模型训练 (4.1-4.2)
-#   s2: 超参数调优 (4.2, 可选)
-#   s3: 模型性能对比 (4.3)
-#   s4: 最佳模型深度分析 — SHAP+审计 (4.4)
+#   s1: 6模型训练 (4.1-4.2)
+#   s2: 超参数调优 (4.2, 可选 --tune)
+#   s3: 模型性能对比 (4.3) — 雷达图 + 对比表
+#   s4: 最佳模型深度分析 (4.4) — SHAP + 审计
 import os, sys, time, pickle, argparse, warnings
 import numpy as np
 import pandas as pd
@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import (PROCESSED_TRAIN_PATH, PROCESSED_TEST_PATH, MODEL_DIR, FIGURES_DIR,
-                    AVAILABLE_MODELS, RANDOM_SEED, DEFAULT_CV_FOLDS)
+from config import (PROCESSED_TRAIN_PATH, MODEL_DIR, FIGURES_DIR,
+                    AVAILABLE_MODELS, DEFAULT_CV_FOLDS)
 from src.train import (ModelTrainer, train_all_models, train_stacking,
                        generate_comparison_table, plot_radar_chart)
 from src.models import UsedCarModelFactory
@@ -32,11 +32,12 @@ def safe_print(msg):
 
 
 def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
-    """执行全部模型训练与评估流程"""
+    """全部模型训练与评估流程 (6模型体系)"""
     start_time = time.time()
     safe_print("=" * 70)
     safe_print("  模型构建与评估")
-    safe_print(f"  模式: {'调优模式' if not skip_tune else '默认参数模式'} | CV: {cv_folds}-fold")
+    safe_print(f"  模型: Ridge | ElasticNet | RF | LightGBM | KNN | Stacking")
+    safe_print(f"  模式: {'调优' if not skip_tune else '默认参数'} | CV: {cv_folds}-fold")
     safe_print("=" * 70)
 
     # ---- 加载数据 ----
@@ -48,8 +49,8 @@ def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
     y = np.expm1(train_df['log_price'].values)
     safe_print(f"\n  特征矩阵: {X.shape[0]:,} x {X.shape[1]}")
 
-    # ---- s1: 5模型训练 (4.1-4.2) ----
-    safe_print(f"\n[4.1-4.2] 五模型训练 ({cv_folds}-fold Stratified CV)")
+    # ---- s1: 5独立模型训练 (4.1-4.2) ----
+    safe_print(f"\n[4.1-4.2] 模型训练 ({cv_folds}-fold Stratified CV)")
     results = train_all_models(X, y, models=AVAILABLE_MODELS, cv_folds=cv_folds)
     safe_print(f"\n  {'Model':<18} {'R2':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>8}")
     safe_print(f"  {'─' * 65}")
@@ -57,20 +58,22 @@ def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
         safe_print(f"  {row['model']:<18} {row['R2_mean']:>8.4f} {row['MAE_mean']:>12,.0f} "
                    f"{row['RMSE_mean']:>12,.0f} {row['MAPE_mean']:>7.1f}%")
     best = results.iloc[0]
-    safe_print(f"\n  [Best] {best['model']} R2={best['R2_mean']:.4f} MAE={best['MAE_mean']:,.0f}")
+    safe_print(f"\n  [Best Single] {best['model']} R2={best['R2_mean']:.4f} MAE={best['MAE_mean']:,.0f}")
 
     # ---- s2: 超参数调优 (可选) ----
     if not skip_tune:
-        safe_print(f"\n[4.2] 超参数调优")
+        safe_print(f"\n[4.2] 超参数调优 (6模型)")
         from src.tune_all_models import run_full_tuning
         run_full_tuning(n_trials=30)
 
     # ---- s3: Stacking + 雷达图 (4.3) ----
     stacking = None
     if not skip_stacking:
-        safe_print(f"\n[4.3] Stacking 集成 (LGB+XGB+Cat -> ElasticNet)")
+        safe_print(f"\n[4.3] Stacking 集成 (Ridge+EN+RF+LGB+KNN → ElasticNet)")
         stacking = train_stacking(X, y, cv_folds=cv_folds)
         safe_print(f"  Stacking R2={stacking['R2_mean']:.4f} MAE={stacking['MAE_mean']:,.0f}")
+        r2_gain = stacking['R2_mean'] - best['R2_mean']
+        safe_print(f"  vs Best Single ({best['model']}): R2 {r2_gain:+.4f}")
 
     # 雷达图
     if stacking:
@@ -84,16 +87,18 @@ def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
     safe_print(f"  [OK] 雷达图: {radar_path}")
 
     # 算法对比表
-    safe_print(f"\n[4.3] 算法核心假设与适用条件对比:")
+    safe_print(f"\n[4.3] 算法核心假设与适用条件:")
     for _, row in generate_comparison_table().iterrows():
-        safe_print(f"  {row['算法']}: {row['优势'][:100]}...")
+        safe_print(f"  {row['算法']}: {row['优势'][:80]}...")
 
-    # ---- s4: 保存模型权重 + SHAP (4.4) ----
-    safe_print(f"\n[4.4] 保存模型权重 & 特征重要性")
+    # ---- s4: 保存模型权重 (4.4) ----
+    safe_print(f"\n[4.4] 保存模型权重")
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     for _, row in results.iterrows():
         model_name = row['model'].lower().replace(' ', '_')
+        if model_name == 'elastic_net':
+            model_name = 'elastic_net'  # 保持原名
         trainer = ModelTrainer(model_name)
         trainer.train(X, y)
         trainer.save_model(os.path.join(MODEL_DIR, f"{model_name}_model.pkl"))
@@ -106,7 +111,6 @@ def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
             pickle.dump(stacking_model, f)
         safe_print(f"  [OK] stacking_model.pkl")
 
-    # 保存对比表
     results.to_csv(os.path.join(MODEL_DIR, "model_comparison.csv"), index=False)
 
     elapsed = time.time() - start_time

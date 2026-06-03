@@ -1,6 +1,6 @@
 # application/run_app.py
 # =====================
-# 论文第6章 · 系统设计与实现 — 启动脚本
+# 系统设计与实现 — 启动脚本
 #
 # 启动 Streamlit 交互式估价界面
 # Usage: python application/run_app.py

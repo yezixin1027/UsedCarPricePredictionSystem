@@ -10,10 +10,9 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
     """高评分特征工程器（精简版，仅保留通过 VIF+MI 验证的特征）。
 
     1. 衍生特征 (4个): annual_milage, power_density, car_age_squared, hp_per_year
-    2. 交互特征 (1个): brand_x_milage
-    3. 目标编码: brand + model (五折嵌套OOF, 拉普拉斯平滑)
-    4. One-Hot编码: fuel_type, accident_status (低基数分类变量)
-    5. Z-score标准化: 连续数值特征无量纲化
+    2. 目标编码: brand + model (五折嵌套OOF, 拉普拉斯平滑)
+    3. One-Hot编码: fuel_type, accident_status (低基数分类变量)
+    4. Z-score标准化: 连续数值特征无量纲化
     """
 
     def __init__(self, n_splits=5, smoothing_weight=10):
@@ -58,18 +57,12 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
         return X_out
 
     def _add_interaction_features(self, X):
-        """在目标编码完成之后，构建 brand_encoded 与连续特征的交互项。
+        """交互特征构建（当前版本无已验证有效的交互项，保留方法留作扩展）。
 
-        必须在 brand_encoded 列已存在时调用。
+        之前尝试的 brand_x_milage / brand_x_car_age / brand_x_power
+        均被 VIF+MI 筛选淘汰，如需新增交互特征请在此添加。
         """
-        X_out = X.copy()
-        if 'brand_encoded' not in X_out.columns:
-            return X_out
-
-        # 品牌 × 里程交互（不同品牌的里程敏感性不同）
-        X_out['brand_x_milage'] = X_out['brand_encoded'] * X_out['milage']
-
-        return X_out
+        return X
 
     def _smooth_encode(self, group_stats, global_mean, weight):
         """拉普拉斯平滑目标编码的通用计算。

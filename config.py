@@ -2,7 +2,7 @@
 # =====================================
 
 #
-# 论文结构映射：
+#
 #   数据探索性分析 → 使用 TRAIN_PATH, TEST_PATH, FIGURES_DIR
 #   数据预处理     → 使用 PROCESSED_DATA_DIR, MODEL_HYPERPARAMS
 #   模型构建与评估 → 使用 MODEL_DIR, AVAILABLE_MODELS, RANDOM_SEED
@@ -36,19 +36,32 @@ DEFAULT_CV_FOLDS = 5
 # 目标变量
 TARGET = "price"
 
-# 可用模型列表
-AVAILABLE_MODELS = ["ridge", "random_forest", "lightgbm", "xgboost", "catboost"]
+# 可用模型列表 (5种范式 + Stacking集成)
+# 线性:   ridge(L2), elastic_net(L1+L2)
+# Bagging: random_forest
+# Boosting: lightgbm
+# 距离:   knn
+# 集成:   stacking
+AVAILABLE_MODELS = ["ridge", "elastic_net", "random_forest", "lightgbm", "knn"]
 
 # 当前激活的模型（用于高级审计等）
-ACTIVE_MODEL = "stacking"
+ACTIVE_MODEL = "lightgbm"
 
 # ============================================================
-# 5 个模型的默认超参数字典（后续会被 Optuna 调优结果覆盖）
+# 7 个模型的默认超参数字典（后续会被 Optuna 调优结果覆盖）
 # ============================================================
 MODEL_HYPERPARAMS = {
+    # ---- 线性模型 ----
     "ridge": {
         "alpha": 1.0
     },
+    "elastic_net": {
+        "alpha": 0.1,
+        "l1_ratio": 0.5,         # 0.5 = L1和L2各占一半
+        "max_iter": 2000,
+        "random_state": 42
+    },
+    # ---- 树模型 · Bagging ----
     "random_forest": {
         "n_estimators": 300,
         "max_depth": 15,
@@ -58,37 +71,25 @@ MODEL_HYPERPARAMS = {
         "random_state": 42,
         "n_jobs": -1
     },
+    # ---- 树模型 · Boosting ----
     "lightgbm": {
         "n_estimators": 1000,
         "learning_rate": 0.03,
         "num_leaves": 63,
-        "min_data_in_leaf": 20,
-        "feature_fraction": 0.8,
-        "bagging_fraction": 0.8,
-        "lambda_l1": 0.1,
-        "lambda_l2": 0.1,
+        "min_child_samples": 20,
+        "colsample_bytree": 0.8,
+        "subsample": 0.8,
+        "reg_alpha": 0.1,
+        "reg_lambda": 0.1,
         "random_state": 42,
         "n_jobs": -1,
         "verbose": -1
     },
-    "xgboost": {
-        "n_estimators": 1000,
-        "learning_rate": 0.03,
-        "max_depth": 6,
-        "subsample": 0.8,
-        "colsample_bytree": 0.8,
-        "min_child_weight": 3,
-        "reg_alpha": 0.1,
-        "reg_lambda": 1.0,
-        "random_state": 42,
+    # ---- 距离模型 ----
+    "knn": {
+        "n_neighbors": 20,
+        "weights": "distance",    # 近邻加权: 更近的点权重更大
+        "p": 2,                   # 欧氏距离
         "n_jobs": -1
-    },
-    "catboost": {
-        "iterations": 1000,
-        "learning_rate": 0.03,
-        "depth": 6,
-        "l2_leaf_reg": 3.0,
-        "random_seed": 42,
-        "verbose": 0
     }
 }

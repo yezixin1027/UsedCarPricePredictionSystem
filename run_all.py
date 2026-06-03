@@ -46,30 +46,29 @@ def main():
     safe_print("  二手车价格预测系统 · 全流程执行")
     safe_print("  Used Car Price Prediction System — Full Pipeline")
     safe_print("=" * 70)
-    safe_print(f"  论文结构映射:")
-    safe_print(f"    第2章 数据探索性分析      → exploration/")
-    safe_print(f"    第3章 数据预处理与特征工程 → preprocessing/")
-    safe_print(f"    第4章 模型构建与评估      → modeling/")
-    safe_print(f"    第5章 结果分析与决策优化   → analysis/")
-    safe_print(f"    第6章 系统设计与实现      → application/")
+    safe_print(f"    数据探索性分析      → exploration/")
+    safe_print(f"    数据预处理与特征工程 → preprocessing/")
+    safe_print(f"    模型构建与评估      → modeling/")
+    safe_print(f"    结果分析与决策优化   → analysis/")
+    safe_print(f"    系统设计与实现      → application/")
     safe_print("=" * 70)
 
     # ================================================================
-    # 第2章: 数据探索性分析
+    # 数据探索性分析
     # ================================================================
     if args.start <= 2:
         safe_print(f"\n{'#' * 70}")
-        safe_print(f"# 第2章: 数据探索性分析")
+        safe_print(f"# 数据探索性分析")
         safe_print(f"{'#' * 70}")
         from exploration.run_exploration import run_exploration
         run_exploration(skip_heavy=args.light)
 
     # ================================================================
-    # 第3章: 数据预处理与特征工程
+    # 数据预处理与特征工程
     # ================================================================
     if args.start <= 3:
         safe_print(f"\n{'#' * 70}")
-        safe_print(f"# 第3章: 数据预处理与特征工程")
+        safe_print(f"# 数据预处理与特征工程")
         safe_print(f"{'#' * 70}")
         from preprocessing.run_preprocessing import run_preprocessing
         run_preprocessing()
@@ -82,21 +81,21 @@ def main():
             safe_print(f"  [WARNING] 编码对比实验失败: {e}")
 
     # ================================================================
-    # 第4章: 模型构建与评估
+    # 模型构建与评估
     # ================================================================
     if args.start <= 4:
         safe_print(f"\n{'#' * 70}")
-        safe_print(f"# 第4章: 模型构建与评估")
+        safe_print(f"# 模型构建与评估")
         safe_print(f"{'#' * 70}")
         from modeling.run_modeling import run_modeling
         run_modeling(skip_tune=not args.tune, skip_stacking=args.no_stacking)
 
     # ================================================================
-    # 第5章: 结果分析与决策优化
+    # 结果分析与决策优化
     # ================================================================
     if args.start <= 5:
         safe_print(f"\n{'#' * 70}")
-        safe_print(f"# 第5章: 结果分析与决策优化")
+        safe_print(f"#结果分析与决策优化")
         safe_print(f"{'#' * 70}")
         from analysis.run_analysis import run_analysis
         run_analysis()

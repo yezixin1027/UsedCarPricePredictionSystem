@@ -1,15 +1,15 @@
 """
-五模型超参数调优 + Stacking 集成脚本
+六模型超参数调优 + Stacking 集成脚本
 ====================================
 
-对 5 个模型分别调优：
-  - Ridge:     手动网格搜索 alpha
-  - Random Forest: 手动网格搜索 n_estimators, max_depth
-  - LightGBM:  Optuna 贝叶斯优化
-  - XGBoost:   Optuna 贝叶斯优化
-  - CatBoost:  Optuna 贝叶斯优化
+对 6 个模型分别调优：
+  - Ridge:       手动网格搜索 alpha
+  - ElasticNet:  手动网格搜索 alpha × l1_ratio
+  - Random Forest: 手动网格搜索 n_estimators → max_depth
+  - LightGBM:    Optuna 贝叶斯优化 (8参数)
+  - KNN:         手动网格搜索 k × weights
 
-最后用各模型最优参数构建 Stacking 集成。
+最后用各模型最优参数构建 Stacking 集成 (Ridge+EN+RF+LGB+KNN → ElasticNet)。
 
 Usage:
     python src/tune_all_models.py [--trials N] [--no-stacking]
@@ -76,7 +76,7 @@ def cv_evaluate(model_name, params, X, y, n_folds=5):
 
 def tune_ridge(X, y):
     safe_print("\n" + "=" * 60)
-    safe_print("[1/5] Ridge 岭回归 — 手动网格搜索 alpha")
+    safe_print("[1/6] Ridge 岭回归 — 手动网格搜索 alpha")
     safe_print("=" * 60)
 
     alphas = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0]
@@ -110,12 +110,37 @@ def tune_ridge(X, y):
 
 
 # ================================================================
-# 2. Random Forest 手动调优
+# 2. ElasticNet 手动调优
+# ================================================================
+
+def tune_elastic_net(X, y):
+    safe_print("\n" + "=" * 60)
+    safe_print("[2/6] ElasticNet — 手动网格搜索 alpha + l1_ratio")
+    safe_print("=" * 60)
+
+    best_r2, best_alpha, best_l1 = -999, 0.1, 0.5
+    for alpha in [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]:
+        for l1_ratio in [0.1, 0.3, 0.5, 0.7, 0.9]:
+            r2, mae, rmse, mape = cv_evaluate('elastic_net',
+                {'alpha': alpha, 'l1_ratio': l1_ratio,
+                 'max_iter': 5000, 'random_state': 42}, X, y)
+            safe_print(f"  alpha={alpha:<6.2f} l1_ratio={l1_ratio:.1f}  "
+                       f"R2={r2:.4f}  MAE={mae:,.0f}")
+            if r2 > best_r2:
+                best_r2, best_alpha, best_l1 = r2, alpha, l1_ratio
+
+    safe_print(f"  >>> Best: alpha={best_alpha:.2f}, l1_ratio={best_l1:.1f}, R2={best_r2:.4f}")
+    return {'alpha': best_alpha, 'l1_ratio': best_l1,
+            'max_iter': 5000, 'random_state': 42}, best_r2
+
+
+# ================================================================
+# 3. Random Forest 手动调优
 # ================================================================
 
 def tune_random_forest(X, y):
     safe_print("\n" + "=" * 60)
-    safe_print("[2/5] Random Forest — 手动网格搜索")
+    safe_print("[3/6] Random Forest — 手动网格搜索")
     safe_print("=" * 60)
 
     # 先调 n_estimators
@@ -154,12 +179,12 @@ def tune_random_forest(X, y):
 
 
 # ================================================================
-# 3. LightGBM Optuna 调优
+# 4. LightGBM Optuna 调优
 # ================================================================
 
 def tune_lightgbm_optuna(X, y, n_trials=50):
     safe_print("\n" + "=" * 60)
-    safe_print(f"[3/5] LightGBM — Optuna 贝叶斯优化 ({n_trials} trials)")
+    safe_print(f"[4/6] LightGBM — Optuna 贝叶斯优化 ({n_trials} trials)")
     safe_print("=" * 60)
 
     import optuna
@@ -172,11 +197,11 @@ def tune_lightgbm_optuna(X, y, n_trials=50):
         params = {
             'num_leaves': trial.suggest_int('num_leaves', 15, 255),
             'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-            'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 5, 100),
-            'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 1.0),
-            'bagging_fraction': trial.suggest_float('bagging_fraction', 0.5, 1.0),
-            'lambda_l1': trial.suggest_float('lambda_l1', 0, 10),
-            'lambda_l2': trial.suggest_float('lambda_l2', 0, 10),
+            'min_child_samples': trial.suggest_int('min_child_samples', 5, 100),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+            'subsample': trial.suggest_float('subsample', 0.5, 1.0),
+            'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+            'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
             'min_child_samples': trial.suggest_int('min_child_samples', 5, 50),
             'n_estimators': 1000,
             'random_state': RANDOM_SEED,
@@ -208,145 +233,64 @@ def tune_lightgbm_optuna(X, y, n_trials=50):
 
 
 # ================================================================
-# 4. XGBoost Optuna 调优
+# 5. KNN 手动调优
 # ================================================================
 
-def tune_xgboost_optuna(X, y, n_trials=50):
+def tune_knn(X, y):
     safe_print("\n" + "=" * 60)
-    safe_print(f"[4/5] XGBoost — Optuna 贝叶斯优化 ({n_trials} trials)")
+    safe_print("[5/6] KNN — 手动网格搜索 n_neighbors + weights")
     safe_print("=" * 60)
 
-    import optuna
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    best_r2, best_k, best_w = -999, 20, 'distance'
+    for k in [5, 10, 15, 20, 30, 50]:
+        for w in ['uniform', 'distance']:
+            r2, mae, rmse, mape = cv_evaluate('knn',
+                {'n_neighbors': k, 'weights': w, 'p': 2, 'n_jobs': -1}, X, y)
+            safe_print(f"  k={k:<3} weights={w:<10}  R2={r2:.4f}  MAE={mae:,.0f}")
+            if r2 > best_r2:
+                best_r2, best_k, best_w = r2, k, w
 
-    from sklearn.model_selection import KFold
-    from sklearn.metrics import r2_score
-
-    def objective(trial):
-        params = {
-            'max_depth': trial.suggest_int('max_depth', 3, 15),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-            'subsample': trial.suggest_float('subsample', 0.5, 1.0),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
-            'min_child_weight': trial.suggest_int('min_child_weight', 1, 20),
-            'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
-            'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-            'gamma': trial.suggest_float('gamma', 0, 5),
-            'n_estimators': 1000,
-            'random_state': RANDOM_SEED,
-            'n_jobs': -1,
-        }
-        kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
-        scores = []
-        for tr, vl in kf.split(X):
-            X_tr, X_val = X[tr], X[vl]
-            y_tr, y_val = y[tr], y[vl]
-            model = UsedCarModelFactory.create_model('xgboost', **params)
-            model.fit(X_tr, np.log1p(y_tr))
-            scores.append(r2_score(np.log1p(y_val), model.predict(X_val)))
-        return np.mean(scores)
-
-    study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
-
-    best = study.best_params.copy()
-    best['n_estimators'] = 1000
-    best['random_state'] = RANDOM_SEED
-    best['n_jobs'] = -1
-
-    safe_print(f"  Best R2: {study.best_value:.4f}")
-    safe_print(f"  Best params: {json.dumps(study.best_params, indent=2)}")
-    return best, study.best_value
+    safe_print(f"  >>> Best: k={best_k}, weights={best_w}, R2={best_r2:.4f}")
+    return {'n_neighbors': best_k, 'weights': best_w, 'p': 2, 'n_jobs': -1}, best_r2
 
 
 # ================================================================
-# 5. CatBoost Optuna 调优
-# ================================================================
-
-def tune_catboost_optuna(X, y, n_trials=50):
-    safe_print("\n" + "=" * 60)
-    safe_print(f"[5/5] CatBoost — Optuna 贝叶斯优化 ({n_trials} trials)")
-    safe_print("=" * 60)
-
-    import optuna
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-
-    from sklearn.model_selection import KFold
-    from sklearn.metrics import r2_score
-
-    def objective(trial):
-        params = {
-            'depth': trial.suggest_int('depth', 4, 12),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-            'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1, 20),
-            'border_count': trial.suggest_int('border_count', 32, 255),
-            'subsample': trial.suggest_float('subsample', 0.5, 1.0),
-            'random_strength': trial.suggest_float('random_strength', 0, 10),
-            'iterations': 1000,
-            'random_seed': RANDOM_SEED,
-            'verbose': 0,
-        }
-        kf = KFold(n_splits=5, shuffle=True, random_state=RANDOM_SEED)
-        scores = []
-        for tr, vl in kf.split(X):
-            X_tr, X_val = X[tr], X[vl]
-            y_tr, y_val = y[tr], y[vl]
-            try:
-                model = UsedCarModelFactory.create_model('catboost', **params)
-                model.fit(X_tr, np.log1p(y_tr))
-                scores.append(r2_score(np.log1p(y_val), model.predict(X_val)))
-            except Exception:
-                return -999
-        return np.mean(scores) if scores else -999
-
-    study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
-
-    best = study.best_params.copy()
-    best['iterations'] = 1000
-    best['random_seed'] = RANDOM_SEED
-    best['verbose'] = 0
-
-    safe_print(f"  Best R2: {study.best_value:.4f}")
-    safe_print(f"  Best params: {json.dumps(study.best_params, indent=2)}")
-    return best, study.best_value
-
-
-# ================================================================
-# Stacking 集成
+# 6. Stacking 集成 (多样化基模型)
 # ================================================================
 
 def evaluate_stacking(best_params_dict, X, y, n_folds=5):
-    """用各模型最优参数构建 Stacking 并评估"""
+    """用各模型最优参数构建 Stacking (Ridge+EN+RF+LGB+KNN) 并评估"""
     safe_print("\n" + "=" * 60)
-    safe_print("[Stacking] 集成评估 (LGB + XGB + CatBoost -> ElasticNet)")
+    safe_print("[6/6] Stacking 集成 (Ridge+EN+RF+LGB+KNN -> ElasticNet)")
     safe_print("=" * 60)
 
     from sklearn.ensemble import StackingRegressor
-    from sklearn.linear_model import ElasticNet
+    from sklearn.linear_model import Ridge, ElasticNet
+    from sklearn.neighbors import KNeighborsRegressor
     import lightgbm as lgb
-    import xgboost as xgb
-    import catboost as cb
+    from sklearn.ensemble import RandomForestRegressor
     from src.train import _make_stratified_folds
 
-    # 用最优参数
-    lgb_p = best_params_dict['lightgbm'].copy()
-    xgb_p = best_params_dict['xgboost'].copy()
-    cat_p = best_params_dict['catboost'].copy()
-    for p in [lgb_p, xgb_p]:
-        p.pop('verbose', None)
-        p.pop('n_jobs', None)
-    cat_p['verbose'] = False
+    ridge_p = best_params_dict['ridge'].copy()
+    en_p    = best_params_dict['elastic_net'].copy()
+    rf_p    = best_params_dict['random_forest'].copy()
+    lgb_p   = best_params_dict['lightgbm'].copy()
+    knn_p   = best_params_dict['knn'].copy()
+
+    lgb_p.pop('verbose', None); lgb_p.pop('n_jobs', None)
+    rf_p.pop('n_jobs', None); knn_p.pop('n_jobs', None)
 
     base_models = [
-        ('lgb', lgb.LGBMRegressor(**lgb_p)),
-        ('xgb', xgb.XGBRegressor(**xgb_p)),
-        ('cat', cb.CatBoostRegressor(**cat_p)),
+        ('ridge', Ridge(**ridge_p)),
+        ('en',    ElasticNet(**en_p)),
+        ('rf',    RandomForestRegressor(**rf_p)),
+        ('lgb',   lgb.LGBMRegressor(**lgb_p)),
+        ('knn',   KNeighborsRegressor(**knn_p)),
     ]
 
     stacking = StackingRegressor(
         estimators=base_models,
-        final_estimator=ElasticNet(alpha=0.1, l1_ratio=0.5, max_iter=2000, random_state=42),
+        final_estimator=ElasticNet(alpha=0.1, l1_ratio=0.5, max_iter=5000, random_state=42),
         cv=5, n_jobs=-1, passthrough=True
     )
 
@@ -387,7 +331,7 @@ def evaluate_stacking(best_params_dict, X, y, n_folds=5):
 def run_full_tuning(n_trials=50):
     start_time = time.time()
     safe_print("=" * 70)
-    safe_print("  五模型超参数调优 + Stacking 集成")
+    safe_print("  七模型超参数调优 + Stacking 集成")
     safe_print(f"  Optuna trials: {n_trials} | 5-fold Stratified CV")
     safe_print("=" * 70)
 
@@ -397,46 +341,60 @@ def run_full_tuning(n_trials=50):
 
     best_params = {}
 
-    # ---- 1. Ridge ----
+    # ---- 1. Ridge (线性·L2) ----
     ridge_params, ridge_r2 = tune_ridge(X, y)
     best_params['ridge'] = ridge_params
 
-    # ---- 2. Random Forest ----
+    # ---- 2. ElasticNet (线性·L1+L2) ----
+    en_params, en_r2 = tune_elastic_net(X, y)
+    best_params['elastic_net'] = en_params
+
+    # ---- 3. Random Forest (树·Bagging) ----
     rf_params, rf_r2 = tune_random_forest(X, y)
     best_params['random_forest'] = rf_params
 
-    # ---- 3. LightGBM ----
+    # ---- 4. LightGBM (树·Boosting) ----
     lgb_params, lgb_r2 = tune_lightgbm_optuna(X, y, n_trials=n_trials)
     best_params['lightgbm'] = lgb_params
 
-    # ---- 4. XGBoost ----
+    # ---- 5. XGBoost (树·Boosting) ----
     xgb_params, xgb_r2 = tune_xgboost_optuna(X, y, n_trials=n_trials)
     best_params['xgboost'] = xgb_params
 
-    # ---- 5. CatBoost ----
+    # ---- 6. CatBoost (树·Boosting) ----
     cat_params, cat_r2 = tune_catboost_optuna(X, y, n_trials=n_trials // 2)
     best_params['catboost'] = cat_params
+
+    # ---- 7. KNN (距离) ----
+    knn_params, knn_r2 = tune_knn(X, y)
+    best_params['knn'] = knn_params
 
     # ---- 用最优参数做最终 5-fold CV 评估 ----
     safe_print("\n" + "=" * 70)
     safe_print("  最终评估 (最优参数, 5-fold Stratified CV)")
     safe_print("=" * 70)
     final_results = {}
-    for name in ['ridge', 'random_forest', 'lightgbm', 'xgboost', 'catboost']:
+    model_order = ['ridge', 'elastic_net', 'random_forest',
+                   'lightgbm', 'xgboost', 'catboost', 'knn']
+    for name in model_order:
         r2, mae, rmse, mape = cv_evaluate(name, best_params[name], X, y)
         final_results[name] = {'R2': r2, 'MAE': mae, 'RMSE': rmse, 'MAPE': mape}
 
-    # ---- 6. Stacking ----
+    # ---- 8. Stacking (多样化集成) ----
     stacking_result = evaluate_stacking(best_params, X, y)
 
     # ---- 总结表 ----
     safe_print("\n" + "=" * 80)
     safe_print(f"  {'Model':<20} {'R2':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>10}")
     safe_print(f"  {'-' * 65}")
-    for name in ['ridge', 'random_forest', 'lightgbm', 'xgboost', 'catboost']:
+    for name in model_order:
         r = final_results[name]
         safe_print(f"  {name:<20} {r['R2']:>8.4f} {r['MAE']:>12,.0f} {r['RMSE']:>12,.0f} {r['MAPE']:>9.1f}%")
     safe_print(f"  {'-' * 65}")
+    safe_print(f"  {'STACKING':<20} {stacking_result['R2_mean']:>8.4f} "
+               f"{stacking_result['MAE_mean']:>12,.0f} {stacking_result['RMSE_mean']:>12,.0f} "
+               f"{stacking_result['MAPE_mean']:>9.1f}%")
+    safe_print(f"  {'=' * 80}")
     safe_print(f"  {'STACKING':<20} {stacking_result['R2_mean']:>8.4f} "
                f"{stacking_result['MAE_mean']:>12,.0f} {stacking_result['RMSE_mean']:>12,.0f} "
                f"{stacking_result['MAPE_mean']:>9.1f}%")
@@ -445,7 +403,7 @@ def run_full_tuning(n_trials=50):
     # ---- 保存最优参数到 config.py ----
     safe_print("\n[Save] Updating config.py with optimized parameters...")
     config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               'src', 'config.py')
+                               'config.py')
     with open(config_path, 'r', encoding='utf-8') as f:
         config_content = f.read()
 
@@ -480,7 +438,7 @@ def run_full_tuning(n_trials=50):
 def update_config_with_params(best_params):
     """将最优参数写入 config.py 的 MODEL_HYPERPARAMS"""
     config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               'src', 'config.py')
+                               'config.py')
     with open(config_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
@@ -496,7 +454,7 @@ def update_config_with_params(best_params):
     if start_idx and end_idx:
         # 构建新的 MODEL_HYPERPARAMS
         new_block = ['MODEL_HYPERPARAMS = {\n']
-        model_order = ['ridge', 'random_forest', 'lightgbm', 'xgboost', 'catboost']
+        model_order = ['ridge', 'elastic_net', 'random_forest', 'lightgbm', 'knn']
         for mi, name in enumerate(model_order):
             params = best_params[name]
             new_block.append(f'    "{name}": {{\n')

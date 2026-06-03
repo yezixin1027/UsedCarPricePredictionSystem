@@ -4,7 +4,6 @@
 #
 # 调用 src/features.py 中的 HighScoreFeatureEngineer:
 #   衍生特征(4): annual_milage, power_density, car_age_squared, hp_per_year
-#   交互特征(1): brand_x_milage
 #   目标编码(2): brand_encoded, model_encoded (5折嵌套OOF + 拉普拉斯平滑)
 #   One-Hot编码: fuel_type, accident_status
 #   Z-score标准化: 全部连续数值特征
@@ -52,8 +51,7 @@ def run_feature_engineering():
     safe_print("  2. power_density = HP/Liter: 升功率, 衡量发动机技术水平")
     safe_print("  3. car_age_squared: 捕获折旧非线性(前3年加速折旧)")
     safe_print("  4. hp_per_year = HP/(car_age+1): 马力保有量, 衡量老化速度")
-    safe_print("  5. brand_x_milage: 不同品牌对里程的敏感度不同")
-    safe_print("  (milage_log, engine_torque_proxy 等经VIF+MI验证无效, 已移除)")
+    safe_print("  (brand_x_milage, milage_log, engine_torque_proxy 经VIF+MI验证无效, 已移除)")
     safe_print(f"\n  [OK] 3.3 特征工程完成")
     return X_feat
 

@@ -1,6 +1,6 @@
-# preprocessing/s2_encoding_comparison.py
+# preprocessing/encoding_comparison.py
 # ========================================
-# 论文 3.2 分类特征编码方式对比
+#  3.2 分类特征编码方式对比
 #
 # 定量对比三种编码策略 (Ridge 5-fold CV):
 #   - 方案0: 丢弃 brand (基线)

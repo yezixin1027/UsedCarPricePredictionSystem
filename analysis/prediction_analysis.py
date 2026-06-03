@@ -1,6 +1,6 @@
-# analysis/s1_prediction_analysis.py
+# analysis/prediction_analysis.py
 # ====================================
-# 论文 5.1 预测结果分析
+# 5.1 预测结果分析
 #
 # 输出:
 #   1. 预测值 vs 实际值散点图 (带 R^2 和误差带)

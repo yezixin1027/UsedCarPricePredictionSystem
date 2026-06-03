@@ -1,13 +1,13 @@
 # config.py — 全局配置（项目根目录）
 # =====================================
-# 对应论文：第2-6章共用的路径、超参数、常量定义
+
 #
 # 论文结构映射：
-#   第2章 数据探索性分析 → 使用 TRAIN_PATH, TEST_PATH, FIGURES_DIR
-#   第3章 数据预处理     → 使用 PROCESSED_DATA_DIR, MODEL_HYPERPARAMS
-#   第4章 模型构建与评估 → 使用 MODEL_DIR, AVAILABLE_MODELS, RANDOM_SEED
-#   第5章 结果分析       → 使用 FIGURES_DIR
-#   第6章 系统实现       → 使用 MODEL_DIR
+#   数据探索性分析 → 使用 TRAIN_PATH, TEST_PATH, FIGURES_DIR
+#   数据预处理     → 使用 PROCESSED_DATA_DIR, MODEL_HYPERPARAMS
+#   模型构建与评估 → 使用 MODEL_DIR, AVAILABLE_MODELS, RANDOM_SEED
+#   结果分析       → 使用 FIGURES_DIR
+#   系统实现       → 使用 MODEL_DIR
 import os
 from datetime import datetime
 

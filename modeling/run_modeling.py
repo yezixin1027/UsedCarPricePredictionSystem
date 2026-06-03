@@ -1,6 +1,6 @@
 # modeling/run_modeling.py
 # ========================
-# 论文第4章 · 模型构建与评估 — 阶段入口
+# 模型构建与评估 — 阶段入口
 #
 # 按顺序执行:
 #   s1: 5模型训练 (4.1-4.2)
@@ -32,10 +32,10 @@ def safe_print(msg):
 
 
 def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
-    """执行第4章全部模型训练与评估流程"""
+    """执行全部模型训练与评估流程"""
     start_time = time.time()
     safe_print("=" * 70)
-    safe_print("  第4章: 模型构建与评估")
+    safe_print("  模型构建与评估")
     safe_print(f"  模式: {'调优模式' if not skip_tune else '默认参数模式'} | CV: {cv_folds}-fold")
     safe_print("=" * 70)
 

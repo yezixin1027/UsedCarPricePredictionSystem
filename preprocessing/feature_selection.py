@@ -1,6 +1,6 @@
-# preprocessing/s4_feature_selection.py
+# preprocessing/feature_selection.py
 # =======================================
-# 论文 3.4 特征选择与降维
+#  3.5 特征选择与降维
 #
 # 两阶段筛选:
 #   第一轮 VIF (方差膨胀因子): 剔除 VIF > 10 的共线性特征
@@ -26,9 +26,9 @@ def safe_print(msg):
 
 
 def run_feature_selection():
-    """运行 3.4 特征选择演示"""
+    """运行 3.5 特征选择演示"""
     safe_print("=" * 60)
-    safe_print("  3.4 特征选择与降维 — Feature Selection")
+    safe_print("  3.5 特征选择与降维 — Feature Selection")
     safe_print("=" * 60)
 
     train_df = pd.read_csv(TRAIN_PATH)
@@ -59,7 +59,7 @@ def run_feature_selection():
     safe_print(f"\n[筛选标准说明]")
     safe_print("  VIF>10: 标准统计阈值, 协方差矩阵不稳定, 系数方差膨胀10倍")
     safe_print("  MI阈值: 所有特征MI均值的5%, 低于此值的特征预测贡献可忽略")
-    safe_print(f"\n  [OK] 3.4 特征选择完成")
+    safe_print(f"\n  [OK] 3.5 特征选择完成")
     return X_selected
 
 

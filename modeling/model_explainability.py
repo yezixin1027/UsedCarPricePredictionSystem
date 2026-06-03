@@ -1,6 +1,6 @@
-# modeling/s4_model_explainability.py
+# modeling/model_explainability.py
 # ===================================
-# 论文 4.4 最佳模型深度分析
+# 4.4 最佳模型深度分析
 #
 # 1. SHAP 可解释性分析 (全局+局部):
 #    - Summary Plot: 全局特征重要性排序

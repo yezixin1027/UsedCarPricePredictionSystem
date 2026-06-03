@@ -4,16 +4,16 @@
 #
 # 按论文章节顺序自动运行全部分析流程:
 #
-#   第2章 → exploration/    数据探索性分析
-#   第3章 → preprocessing/  数据预处理与特征工程
-#   第4章 → modeling/       模型构建与评估
-#   第5章 → analysis/       结果分析与决策优化
-#   第6章 → application/    系统设计与实现 (需手动启动)
+#   exploration/    数据探索性分析
+#   preprocessing/  数据预处理与特征工程
+#   modeling/       模型构建与评估
+#   analysis/       结果分析与决策优化
+#   application/    系统设计与实现 (需手动启动)
 #
 # Usage:
 #   python run_all.py                      # 全部流程
-#   python run_all.py --start 2            # 从第2章开始
-#   python run_all.py --start 3            # 从第3章开始 (跳过EDA)
+#   python run_all.py --start 2            # 从数据预处理与特征工程开始
+#   python run_all.py --start 3            # 从模型构建与评估开始 (跳过EDA)
 #   python run_all.py --skip-tune          # 跳过超参数调优
 #   python run_all.py --light              # 轻量模式 (跳过耗时步骤)
 import os, sys, time, argparse
@@ -76,7 +76,7 @@ def main():
 
         # 编码对比实验 (独立运行, 不阻塞主流程)
         try:
-            from preprocessing.s2_encoding_comparison import run_encoding_comparison
+            from preprocessing.encoding_comparison import run_encoding_comparison
             run_encoding_comparison()
         except Exception as e:
             safe_print(f"  [WARNING] 编码对比实验失败: {e}")

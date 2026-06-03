@@ -1,6 +1,6 @@
-# modeling/s1_model_training.py
+# modeling/model_training.py
 # =============================
-# 论文 4.1-4.2 模型选择与训练
+# 4.1-4.2 模型选择与训练
 #
 # 5种模型: Ridge, Random Forest, LightGBM, XGBoost, CatBoost
 # 统一使用 5折分层CV (按价格分位数stratify) 确保公平对比

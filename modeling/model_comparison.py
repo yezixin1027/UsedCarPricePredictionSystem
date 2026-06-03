@@ -1,6 +1,6 @@
-# modeling/s3_model_comparison.py
+# modeling/model_comparison.py
 # ================================
-# 论文 4.3 模型性能对比分析
+# 4.3 模型性能对比分析
 #
 # 多维度对比 (雷达图): R2, 1/MAE, 1/RMSE, 1/MAPE, 1/训练时间
 # 算法对比表: 核心假设、优势、劣势、适用场景

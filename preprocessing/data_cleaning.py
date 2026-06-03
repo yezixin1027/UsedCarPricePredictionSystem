@@ -1,6 +1,6 @@
-# preprocessing/s1_data_cleaning.py
+# preprocessing/data_cleaning.py
 # ==================================
-# 论文 3.1 数据清洗与异常值处理
+# 3.1 数据清洗与异常值处理
 #
 # 调用 src/preprocess.py 中的 AdvancedUsedCarPreprocessor:
 #   - 品牌名称标准化 + 稀有品牌归拢

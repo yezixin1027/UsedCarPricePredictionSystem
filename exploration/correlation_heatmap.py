@@ -1,6 +1,6 @@
-# exploration/s3_correlation_heatmap.py
+# exploration/correlation_heatmap.py
 # =======================================
-# 论文 2.3 特征相关性分析
+# 2.3 特征相关性分析
 #
 # 计算核心数值特征与 log_price 的 Pearson 相关系数矩阵
 import os

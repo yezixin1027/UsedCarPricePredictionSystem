@@ -1,6 +1,6 @@
-# modeling/s2_hyperparameter_tuning.py
+# modeling/hyperparameter_tuning.py
 # =====================================
-# 论文 4.2 超参数调优
+# 4.2 超参数调优
 #
 # Ridge/RF: 手动网格搜索 (解释参数变化对模型的影响)
 # LGB/XGB/Cat: Optuna 贝叶斯优化

@@ -1,12 +1,12 @@
 # preprocessing/run_preprocessing.py
 # ==============================
-# 论文第3章 · 数据预处理与特征工程 — 阶段入口
+# 数据预处理与特征工程 — 阶段入口
 #
-# 按论文顺序依次执行:
+# 顺序依次执行:
 #   s1: 数据清洗与异常值处理 (3.1)
 #   s2: 分类特征编码方式对比 (3.2)
-#   s3: 特征工程 — 衍生+交互+编码+标准化 (3.3)
-#   s4: 特征选择 — VIF + MI两阶段筛选 (3.4)
+#   s3: 特征工程 — 衍生+交互+编码+标准化 (3.3+3.4)
+#   s4: 特征选择 — VIF + MI两阶段筛选 (3.5)
 #
 # 执行完毕后生成 data/processed/train_features.csv 和 test_features.csv
 import os, sys, time, traceback
@@ -26,7 +26,7 @@ def safe_print(msg):
 
 
 def run_preprocessing():
-    """执行第3章全部数据预处理与特征工程流程"""
+    """全部数据预处理与特征工程流程"""
     start_time = time.time()
     safe_print("=" * 70)
     safe_print("  第3章: 数据预处理与特征工程")

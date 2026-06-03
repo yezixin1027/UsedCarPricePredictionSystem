@@ -1,6 +1,6 @@
-# exploration/s2_target_analysis.py
+# exploration/target_analysis.py
 # ===================================
-# 论文 2.2 目标变量分析
+# 2.2 目标变量分析
 #
 # 分析 price 的分布特征: 原始 vs log1p 对数变换
 import os

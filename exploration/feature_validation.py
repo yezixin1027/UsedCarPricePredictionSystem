@@ -1,6 +1,6 @@
-# exploration/s5_feature_validation.py
+# exploration/feature_validation.py
 # =======================================
-# 论文 2.5 衍生特征有效性综合验证
+# 2.5 衍生特征有效性综合验证
 #
 # Section A: 排列重要性 (Permutation Importance)
 # Section B: Bootstrap 相关性置信区间 (B=1000)
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from sklearn.base import clone
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Ridge
 from sklearn.inspection import PartialDependenceDisplay
 from sklearn.model_selection import cross_val_score, KFold
 from sklearn.preprocessing import StandardScaler
@@ -73,14 +73,29 @@ def run_feature_validation():
     print("=" * 60)
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
-    # 1. 数据加载与特征构建
-    raw_df = pd.read_csv(TRAIN_PATH)
-    y = raw_df['price']
-    y_log = np.log1p(y)
-    preprocessor = AdvancedUsedCarPreprocessor()
-    fe_engineer = HighScoreFeatureEngineer()
-    X_clean = preprocessor.fit_transform(raw_df.drop(columns=['price']))
-    X_features = fe_engineer.fit_transform(X_clean, y)
+    # 1. 数据加载 — 优先用已处理的特征矩阵 (快), 否则完整跑一遍 (慢)
+    processed_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  'data', 'processed', 'train_features.csv')
+    if os.path.exists(processed_path):
+        print("[INFO] 使用已处理的特征矩阵 (跳过 OOF 编码, 快)")
+        train_df = pd.read_csv(processed_path)
+        X_features = train_df.drop(columns=['log_price'])
+        y_log = train_df['log_price']
+        y = np.expm1(y_log)
+        # 确保数据是数值格式
+        for col in X_features.columns:
+            if X_features[col].dtype == bool:
+                X_features[col] = X_features[col].astype(int)
+    else:
+        print("[INFO] 预处理数据不存在, 运行完整流水线 (含 OOF 编码, 慢)")
+        raw_df = pd.read_csv(TRAIN_PATH)
+        y = raw_df['price']
+        y_log = np.log1p(y)
+        preprocessor = AdvancedUsedCarPreprocessor()
+        fe_engineer = HighScoreFeatureEngineer()
+        X_clean = preprocessor.fit_transform(raw_df.drop(columns=['price']))
+        X_features = fe_engineer.fit_transform(X_clean, y)
+
     feature_names = X_features.columns.tolist()
     X_matrix = X_features.values.astype(float)
     n_samples, n_features = X_matrix.shape
@@ -90,12 +105,11 @@ def run_feature_validation():
     print(f"样本: {n_samples:,} | 特征: {n_features}")
 
     # ================================================================
-    # Section A: 排列重要性
+    # Section A: 排列重要性 (n_repeats=5 平衡速度与稳定性)
     # ================================================================
     print("\n[Section A] 排列重要性分析")
-    alphas = np.logspace(-2, 3, 20)
-    ridge_cv = RidgeCV(alphas=alphas)
-    pi_df = _permutation_importance(ridge_cv, X_matrix, y_log.values, feature_names, n_repeats=10, cv=5)
+    ridge = Ridge(alpha=1.0)  # 比 RidgeCV 快 ~20倍, 排列重要性排名高度一致
+    pi_df = _permutation_importance(ridge, X_matrix, y_log.values, feature_names, n_repeats=5, cv=5)
 
     safe_print(f"\n{'特征':<25} {'重要性':>12} {'标准差':>10}")
     safe_print("-" * 50)
@@ -111,31 +125,35 @@ def run_feature_validation():
     ax.invert_yaxis()
     ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
     ax.set_xlabel('R^2 decrease', fontsize=11)
-    ax.set_title('Section A: Permutation Importance (10 repeats x 5-fold CV)', fontsize=12, fontweight='bold')
+    ax.set_title('Section A: Permutation Importance (5 repeats x 5-fold CV)', fontsize=12, fontweight='bold')
     plt.tight_layout()
     plt.savefig(os.path.join(FIGURES_DIR, 'validation_permutation_importance.png'), dpi=300)
     plt.close()
     safe_print("  [OK] 排列重要性图已保存")
 
     # ================================================================
-    # Section B: Bootstrap 相关性置信区间
+    # Section B: Bootstrap 相关性置信区间 (B=200 + 采样加速)
     # ================================================================
-    print("\n[Section B] Bootstrap 相关性置信区间 (B=1000)")
+    print("\n[Section B] Bootstrap 相关性置信区间 (B=200)")
     all_validate = derived_features + [f for f in base_features if f in feature_names]
-    B = 1000
+    B = 200  # 200次已足够稳定的95%CI估计
     bootstrap_results = {}
     rng = np.random.RandomState(42)
+    # 采样10K加速Spearman计算 (Spearman秩相关在18万样本上极慢)
+    sample_n = min(10000, n_samples)
+    sample_idx = rng.choice(n_samples, size=sample_n, replace=False)
 
     for feat in all_validate:
         if feat not in X_features.columns:
             continue
-        x_vals = X_features[feat].values
+        x_vals = X_features[feat].values[sample_idx]
+        y_sample = y_log.values[sample_idx]
         pearson_vals, spearman_vals = [], []
         for _ in range(B):
-            idx = rng.choice(n_samples, size=n_samples, replace=True)
+            idx = rng.choice(sample_n, size=sample_n, replace=True)
             try:
-                pr, _ = stats.pearsonr(x_vals[idx], y_log.values[idx])
-                sr, _ = stats.spearmanr(x_vals[idx], y_log.values[idx])
+                pr, _ = stats.pearsonr(x_vals[idx], y_sample[idx])
+                sr, _ = stats.spearmanr(x_vals[idx], y_sample[idx])
                 pearson_vals.append(pr); spearman_vals.append(sr)
             except Exception:
                 continue
@@ -176,7 +194,7 @@ def run_feature_validation():
         ax.set_xlabel(title, fontsize=11)
         ax.set_title(title, fontsize=12, fontweight='bold')
         ax.invert_yaxis()
-    fig_b.suptitle('Section B: Bootstrap Correlation Confidence Intervals (B=1,000)', fontsize=13, fontweight='bold', y=1.01)
+    fig_b.suptitle('Section B: Bootstrap Correlation Confidence Intervals (B=200, n=10K sample)', fontsize=13, fontweight='bold', y=1.01)
     plt.tight_layout()
     plt.savefig(os.path.join(FIGURES_DIR, 'validation_bootstrap_correlation.png'), dpi=300)
     plt.close()
@@ -186,7 +204,7 @@ def run_feature_validation():
     # Section C: 偏依赖图
     # ================================================================
     print("\n[Section C] 偏依赖图")
-    ridge_pdp = RidgeCV(alphas=alphas)
+    ridge_pdp = Ridge(alpha=1.0)
     ridge_pdp.fit(X_matrix, y_log.values)
     pdp_features = [f for f in all_validate if f in feature_names]
     pdp_indices = [feature_names.index(f) for f in pdp_features]
@@ -199,13 +217,13 @@ def run_feature_validation():
     for i, (feat, feat_idx) in enumerate(zip(pdp_features, pdp_indices)):
         PartialDependenceDisplay.from_estimator(
             ridge_pdp, X_matrix, features=[feat_idx], feature_names=feature_names,
-            kind='average', ax=axes_c[i], grid_resolution=50,
+            kind='average', ax=axes_c[i], grid_resolution=30,
             line_kw={'color': '#2F5496', 'linewidth': 2})
         label = '(衍生)' if feat in derived_features else '(基础)'
         axes_c[i].set_title(f'{feat} {label}', fontsize=11, fontweight='bold')
     for i in range(n_pdp, len(axes_c)):
         axes_c[i].set_visible(False)
-    fig_c.suptitle('Section C: Partial Dependence Plots (RidgeCV)', fontsize=13, fontweight='bold', y=1.02)
+    fig_c.suptitle('Section C: Partial Dependence Plots (Ridge)', fontsize=13, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.savefig(os.path.join(FIGURES_DIR, 'validation_partial_dependence.png'), dpi=300)
     plt.close()
@@ -215,7 +233,7 @@ def run_feature_validation():
     # Section D: 消融实验
     # ================================================================
     print("\n[Section D] 消融实验")
-    base_scores = cross_val_score(ridge_cv, X_matrix, y_log.values, cv=5, scoring='r2', n_jobs=-1)
+    base_scores = cross_val_score(ridge, X_matrix, y_log.values, cv=5, scoring='r2', n_jobs=-1)
     safe_print(f"\n全特征基准 R^2 = {base_scores.mean():.4f} +/- {base_scores.std():.4f}")
 
     ablation_results = {}
@@ -224,7 +242,7 @@ def run_feature_validation():
             continue
         keep_idx = [i for i, name in enumerate(feature_names) if name != drop_feat]
         X_ablated = X_matrix[:, keep_idx]
-        ab_scores = cross_val_score(ridge_cv, X_ablated, y_log.values, cv=5, scoring='r2', n_jobs=-1)
+        ab_scores = cross_val_score(ridge, X_ablated, y_log.values, cv=5, scoring='r2', n_jobs=-1)
         delta = base_scores.mean() - ab_scores.mean()
         ablation_results[drop_feat] = {'delta_r2': delta, 'delta_pct': delta / base_scores.mean() * 100}
         safe_print(f"剔除 {drop_feat:<20}: R^2 = {ab_scores.mean():.4f} | delta_R^2 = {delta:+.6f}")

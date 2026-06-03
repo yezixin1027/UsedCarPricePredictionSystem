@@ -1,6 +1,6 @@
-# exploration/s1_dataset_overview.py
+# exploration/dataset_overview.py
 # ======================================
-# 论文 2.1 数据集概览
+# 2.1 数据集概览
 #
 # 输出内容:
 #   1. 数据集基本信息（样本量、特征数、内存占用）

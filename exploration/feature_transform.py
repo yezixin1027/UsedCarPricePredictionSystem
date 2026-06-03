@@ -1,6 +1,6 @@
-# exploration/s4_feature_transform.py
+# exploration/feature_transform.py
 # ====================================
-# 论文 2.4 数值特征变换策略对比分析
+# 2.4 数值特征变换策略对比分析
 #
 # Section A: 分布对比 — milage 与 engine_hp 在 4 种变换下的分布形态
 # Section B: 模型影响 — Ridge 5折CV 对比 3 种变换策略的 R² 和 RMSE

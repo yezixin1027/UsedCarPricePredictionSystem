@@ -1,6 +1,6 @@
-# analysis/s2_business_insights.py
+# analysis/business_insights.py
 # =================================
-# 论文 5.2 业务建议
+# 5.2 业务建议
 #
 # 基于模型分析结果, 提炼对二手车交易的实用建议:
 #   1. 定价策略建议 (基于关键特征影响)

@@ -1,6 +1,6 @@
-# preprocessing/s3_feature_engineering.py
+# preprocessing/feature_engineering.py
 # ========================================
-# 论文 3.3 特征工程
+# 3.3 特征工程
 #
 # 调用 src/features.py 中的 HighScoreFeatureEngineer:
 #   衍生特征(4): annual_milage, power_density, car_age_squared, hp_per_year

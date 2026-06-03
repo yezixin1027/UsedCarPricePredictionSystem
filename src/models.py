@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestRegressor, StackingRegressor
 import lightgbm as lgb
 import xgboost as xgb
 import catboost as cb
-from src.config import MODEL_HYPERPARAMS
+from config import MODEL_HYPERPARAMS
 
 
 class UsedCarModelFactory:

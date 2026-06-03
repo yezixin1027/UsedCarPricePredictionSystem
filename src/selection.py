@@ -40,7 +40,7 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.config import FIGURES_DIR
+from config import FIGURES_DIR
 
 
 def _calculate_vif(X_numeric):

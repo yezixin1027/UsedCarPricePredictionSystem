@@ -33,7 +33,7 @@ warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.config import (PROCESSED_TRAIN_PATH, MODEL_DIR, FIGURES_DIR,
+from config import (PROCESSED_TRAIN_PATH, MODEL_DIR, FIGURES_DIR,
                         ACTIVE_MODEL, MODEL_HYPERPARAMS, RANDOM_SEED,
                         AVAILABLE_MODELS, DEFAULT_CV_FOLDS)
 from src.models import UsedCarModelFactory

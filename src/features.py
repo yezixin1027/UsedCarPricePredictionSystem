@@ -7,21 +7,13 @@ from sklearn.preprocessing import StandardScaler
 
 
 class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
-    """高评分特征工程器（增强版）。
+    """高评分特征工程器（精简版，仅保留通过 VIF+MI 验证的特征）。
 
-    完成以下变换：
-    1. 衍生特征构建 —— 年均行驶里程、马力密度、车龄平方、里程对数等
-    2. 交互特征 —— brand_encoded × car_age、brand_encoded × milage 等
-    3. 五折嵌套隔离目标编码 —— brand 与 model 两列高基数特征稠密化
-    4. One-Hot 编码 —— 低基数分类变量
-    5. Z-score 标准化 —— 连续数值特征无量纲化
-
-    Parameters
-    ----------
-    n_splits : int
-        交叉验证折数 (default=5)。
-    smoothing_weight : float
-        目标编码拉普拉斯平滑权重 (default=10)。
+    1. 衍生特征 (4个): annual_milage, power_density, car_age_squared, hp_per_year
+    2. 交互特征 (1个): brand_x_milage
+    3. 目标编码: brand + model (五折嵌套OOF, 拉普拉斯平滑)
+    4. One-Hot编码: fuel_type, accident_status (低基数分类变量)
+    5. Z-score标准化: 连续数值特征无量纲化
     """
 
     def __init__(self, n_splits=5, smoothing_weight=10):
@@ -34,19 +26,15 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
         self.numerical_cols = ['milage', 'engine_hp', 'engine_liter', 'car_age']
         # 扩展衍生特征列表
         self.derived_cols = ['annual_milage', 'power_density',
-                             'car_age_squared', 'milage_log',
-                             'hp_per_year', 'engine_torque_proxy']
+                             'car_age_squared', 'hp_per_year']
 
     def _build_derived_features(self, X):
-        """构建衍生复合特征与交互特征。
+        """构建衍生复合特征（共 4 个，均通过 VIF+MI 筛选验证有效）。
 
-        新增特征（共 6 个）：
         - annual_milage: 年均行驶里程（磨损强度）
-        - power_density: 马力密度（升功率）
-        - car_age_squared: 车龄平方（非线性折旧）
-        - milage_log: 里程对数（幂律校正）
-        - hp_per_year: 年均马力保有量
-        - engine_torque_proxy: 排量×马力（动力综合指标）
+        - power_density: 马力密度/升功率（性能溢价指标）
+        - car_age_squared: 车龄平方（捕获非线性折旧加速效应）
+        - hp_per_year: 年均马力保有量（发动机老化速度，XGBoost 最重要特征）
         """
         X_out = X.copy()
 
@@ -60,18 +48,12 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
         X_out['power_density'] = X_out['power_density'].replace(
             [np.inf, -np.inf], np.nan).fillna(pd_fallback)
 
-        # === 新增非线性 / 交互特征 ===
+        # === 非线性特征 ===
         # ③ 车龄平方（捕获折旧加速 / 减缓效应，前 3 年折旧最快）
         X_out['car_age_squared'] = X_out['car_age'] ** 2
 
-        # ④ 里程对数（里程与价格通常呈对数而非线性关系）
-        X_out['milage_log'] = np.log1p(X_out['milage'])
-
-        # ⑤ 年均马力保有量（衡量发动机老化速度）
+        # ④ 年均马力保有量（衡量发动机老化速度）
         X_out['hp_per_year'] = X_out['engine_hp'] / (X_out['car_age'] + 1)
-
-        # ⑥ 排量 × 马力（动力总成综合指标，近似扭矩）
-        X_out['engine_torque_proxy'] = X_out['engine_hp'] * X_out['engine_liter']
 
         return X_out
 
@@ -84,14 +66,8 @@ class HighScoreFeatureEngineer(BaseEstimator, TransformerMixin):
         if 'brand_encoded' not in X_out.columns:
             return X_out
 
-        # 品牌 × 车龄交互（不同品牌的折旧速度不同）
-        X_out['brand_x_car_age'] = X_out['brand_encoded'] * X_out['car_age']
-
         # 品牌 × 里程交互（不同品牌的里程敏感性不同）
-        X_out['brand_x_milage'] = X_out['brand_encoded'] * X_out['milage_log']
-
-        # 品牌 × 马力密度交互（运动品牌 vs 家用品牌对动力的定价差异）
-        X_out['brand_x_power'] = X_out['brand_encoded'] * X_out['power_density']
+        X_out['brand_x_milage'] = X_out['brand_encoded'] * X_out['milage']
 
         return X_out
 

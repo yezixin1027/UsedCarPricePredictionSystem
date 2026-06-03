@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 warnings.filterwarnings('ignore')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.config import PROCESSED_TRAIN_PATH, FIGURES_DIR, MODEL_DIR, RANDOM_SEED
+from config import PROCESSED_TRAIN_PATH, FIGURES_DIR, MODEL_DIR, RANDOM_SEED
 from src.models import UsedCarModelFactory
 
 

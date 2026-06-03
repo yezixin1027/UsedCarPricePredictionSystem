@@ -21,7 +21,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.config import (PROCESSED_TRAIN_PATH, PROCESSED_TEST_PATH,
+from config import (PROCESSED_TRAIN_PATH, PROCESSED_TEST_PATH,
                         MODEL_DIR, FIGURES_DIR, RANDOM_SEED)
 
 plt.rcParams['font.sans-serif'] = ['SimHei']

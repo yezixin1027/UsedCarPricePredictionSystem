@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
-from src.config import CURRENT_YEAR
+from config import CURRENT_YEAR
 
 class AdvancedUsedCarPreprocessor(BaseEstimator, TransformerMixin):
     def __init__(self, rare_brand_threshold=15, iqr_multiplier=3.0):
@@ -96,6 +96,7 @@ class AdvancedUsedCarPreprocessor(BaseEstimator, TransformerMixin):
         X_out['brand'] = X_out['brand'].apply(lambda x: x if x in self.frequent_brands_ else 'Other')
 
         # 4. 亮点：温索尔自适应局部截断，应对网页端录入极端脏数据，保障服务永不崩溃
+        X_out['milage'] = X_out['milage'].astype(float)
         for brand in self.brand_iqr_bounds_:
             idx = X_out['brand'] == brand
             if idx.any():

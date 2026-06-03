@@ -7,7 +7,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from src.config import TRAIN_PATH, ACTIVE_MODEL
+from config import TRAIN_PATH, ACTIVE_MODEL
 from src.preprocess import AdvancedUsedCarPreprocessor
 from src.features import HighScoreFeatureEngineer
 from src.models import UsedCarModelFactory

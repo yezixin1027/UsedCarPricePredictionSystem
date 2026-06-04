@@ -18,6 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RAW_DATA_DIR = os.path.join(BASE_DIR, "data", "raw")
 PROCESSED_DATA_DIR = os.path.join(BASE_DIR, "data", "processed")
 MODEL_DIR = os.path.join(BASE_DIR, "models")
+REPORTS_DIR = os.path.join(BASE_DIR, "reports")
 FIGURES_DIR = os.path.join(BASE_DIR, "reports", "figures")
 
 TRAIN_PATH = os.path.join(RAW_DATA_DIR, "train.csv")
@@ -51,45 +52,40 @@ ACTIVE_MODEL = "lightgbm"
 # 7 个模型的默认超参数字典（后续会被 Optuna 调优结果覆盖）
 # ============================================================
 MODEL_HYPERPARAMS = {
-    # ---- 线性模型 ----
     "ridge": {
-        "alpha": 1.0
+        "alpha": 5.0
     },
     "elastic_net": {
-        "alpha": 0.1,
-        "l1_ratio": 0.5,         # 0.5 = L1和L2各占一半
-        "max_iter": 2000,
+        "alpha": 0.01,
+        "l1_ratio": 0.1,
+        "max_iter": 5000,
         "random_state": 42
     },
-    # ---- 树模型 · Bagging ----
     "random_forest": {
-        "n_estimators": 300,
-        "max_depth": 15,
+        "n_estimators": 500,
+        "max_depth": 12,
         "min_samples_split": 5,
         "min_samples_leaf": 2,
-        "max_features": 0.8,
         "random_state": 42,
         "n_jobs": -1
     },
-    # ---- 树模型 · Boosting ----
     "lightgbm": {
+        "num_leaves": 94,
+        "learning_rate": 0.035240102913883735,
+        "min_child_samples": 14,
+        "colsample_bytree": 0.5306905097710306,
+        "subsample": 0.7623074715989433,
+        "reg_alpha": 6.572406184977355,
+        "reg_lambda": 2.5285087745914234,
         "n_estimators": 1000,
-        "learning_rate": 0.03,
-        "num_leaves": 63,
-        "min_child_samples": 20,
-        "colsample_bytree": 0.8,
-        "subsample": 0.8,
-        "reg_alpha": 0.1,
-        "reg_lambda": 0.1,
         "random_state": 42,
         "n_jobs": -1,
         "verbose": -1
     },
-    # ---- 距离模型 ----
     "knn": {
-        "n_neighbors": 20,
-        "weights": "distance",    # 近邻加权: 更近的点权重更大
-        "p": 2,                   # 欧氏距离
+        "n_neighbors": 50,
+        "weights": "uniform",
+        "p": 2,
         "n_jobs": -1
     }
 }

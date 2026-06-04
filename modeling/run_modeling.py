@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (PROCESSED_TRAIN_PATH, MODEL_DIR, FIGURES_DIR,
                     AVAILABLE_MODELS, DEFAULT_CV_FOLDS)
 from src.train import (ModelTrainer, train_all_models, train_stacking,
-                       generate_comparison_table, plot_radar_chart)
+                       generate_comparison_table, plot_radar_chart,
+                       plot_predictions_vs_actual)
 from src.models import UsedCarModelFactory
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -85,6 +86,12 @@ def run_modeling(skip_tune=True, skip_stacking=False, cv_folds=5):
         plot_df = results
     radar_path = plot_radar_chart(plot_df)
     safe_print(f"  [OK] 雷达图: {radar_path}")
+
+    # 预测值 vs 真实值散点图 + 残差分布 (最佳模型 OOF)
+    safe_print(f"\n[4.3] 预测 vs 真实可视化 (最佳模型: {best['model']})")
+    pred_vs_actual_path = plot_predictions_vs_actual(
+        best['model'].lower().replace(' ', '_'), X, y)
+    safe_print(f"  [OK] 预测对比图: {pred_vs_actual_path}")
 
     # 算法对比表
     safe_print(f"\n[4.3] 算法核心假设与适用条件:")

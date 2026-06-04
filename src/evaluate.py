@@ -7,7 +7,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import TRAIN_PATH, ACTIVE_MODEL
+from config import TRAIN_PATH, ACTIVE_MODEL, REPORTS_DIR
 from src.preprocess import AdvancedUsedCarPreprocessor
 from src.features import HighScoreFeatureEngineer
 from src.models import UsedCarModelFactory
@@ -75,10 +75,10 @@ def run_advanced_audit():
     # 打印核心关键字段进行肉眼特征分析
     print(top10_error[
               ['brand', 'model', 'model_year', 'milage', 'engine', 'price', 'predicted_price', 'absolute_error_real']])
-    # 固化为 Excel，作为论文第4章第4节深度个案剖析的铁证
-    os.makedirs('reports', exist_ok=True)
-    top10_error.to_excel('reports/top10_extreme_errors.xlsx', index=False)
-    print("  结论: 极端误差样本详细报表已导出至 -> reports/top10_extreme_errors.xlsx")
+    # 固化为 Excel，作为第4节深度个案剖析的铁证
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    top10_error.to_excel(os.path.join(REPORTS_DIR, 'top10_extreme_errors.xlsx'), index=False)
+    print(f"  结论: 极端误差样本详细报表已导出至 -> {os.path.join(REPORTS_DIR, 'top10_extreme_errors.xlsx')}")
 
     # ============================================================
     # 审计点 ③：可信任机器学习 —— 系统性公平性与算法偏见评估
@@ -169,7 +169,7 @@ def analyze_top_errors(audit_df, top_n=10, save_path=None):
           f"区间，{'可能需要更多高端车训练样本' if avg_price_top > 35000 else '需关注低端车的数据质量'}")
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else 'reports',
+        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else REPORTS_DIR,
                     exist_ok=True)
         top_errors.to_excel(save_path, index=False)
         print(f"    [OK] 极端误差样本已导出: {save_path}")

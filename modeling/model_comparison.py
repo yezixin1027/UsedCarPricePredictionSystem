@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import PROCESSED_TRAIN_PATH, FIGURES_DIR
-from src.train import train_all_models, train_stacking, plot_radar_chart, generate_comparison_table
+from src.train import (train_all_models, train_stacking, plot_radar_chart,
+                       generate_comparison_table, plot_predictions_vs_actual)
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -54,6 +55,12 @@ def run_model_comparison():
     radar_path = os.path.join(FIGURES_DIR, 'model_radar_comparison.png')
     plot_radar_chart(plot_df, save_path=radar_path)
     safe_print(f"\n  [OK] 雷达图: {radar_path}")
+
+    # 预测 vs 真实图 (最佳模型)
+    best_model_name = plot_df.loc[plot_df['R2_mean'].idxmax(), 'model'].lower().replace(' ', '_')
+    safe_print(f"\n  预测 vs 真实可视化 (最佳模型: {best_model_name})")
+    pred_path = plot_predictions_vs_actual(best_model_name, X, y)
+    safe_print(f"  [OK] 预测对比图: {pred_path}")
 
     # 定量对比表
     safe_print(f"\n  {'Model':<18} {'R2':>8} {'MAE':>12} {'RMSE':>12} {'MAPE':>10}")

@@ -38,6 +38,7 @@ def run_prediction_analysis():
 
     # 1. 加载数据与模型
     train_df = pd.read_csv(PROCESSED_TRAIN_PATH)
+    feature_names = train_df.drop(columns=['log_price']).columns.tolist()
     X = train_df.drop(columns=['log_price']).values.astype(float)
     y_real = np.expm1(train_df['log_price'].values)
 
@@ -55,8 +56,11 @@ def run_prediction_analysis():
     for train_idx, val_idx in kf.split(X):
         X_tr, X_val = X[train_idx], X[val_idx]
         y_tr = np.log1p(y_real[train_idx])
-        model.fit(X_tr, y_tr)
-        oof_preds[val_idx] = np.expm1(model.predict(X_val))
+        # 封装为 DataFrame 以消除 sklearn feature_names 警告
+        X_tr_df = pd.DataFrame(X_tr, columns=feature_names)
+        X_val_df = pd.DataFrame(X_val, columns=feature_names)
+        model.fit(X_tr_df, y_tr)
+        oof_preds[val_idx] = np.expm1(model.predict(X_val_df))
     oof_preds = np.maximum(oof_preds, 0)
 
     # 计算指标

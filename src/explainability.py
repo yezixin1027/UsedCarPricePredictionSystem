@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore')
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (PROCESSED_TRAIN_PATH, PROCESSED_TEST_PATH,
-                        MODEL_DIR, FIGURES_DIR, RANDOM_SEED)
+                        MODEL_DIR, FIGURES_DIR, REPORTS_DIR, RANDOM_SEED)
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -156,6 +156,12 @@ def run_shap_analysis(model_path=None, n_samples=5000):
     print(f"  {'─' * 50}")
     for _, row in importance_df.head(10).iterrows():
         print(f"  {row['feature']:<35} {row['mean_abs_shap']:.6f}")
+
+    # 保存特征重要性表到 reports 目录
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    importance_csv = os.path.join(REPORTS_DIR, 'shap_feature_importance.csv')
+    importance_df.to_csv(importance_csv, index=False, encoding='utf-8-sig')
+    print(f"\n  [OK] SHAP 特征重要性表已导出: {importance_csv}")
 
     print(f"\n  [OK] SHAP 图表已保存到: {FIGURES_DIR}/")
     print(f"    - shap_summary.png")

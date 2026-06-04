@@ -16,7 +16,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import PROCESSED_TRAIN_PATH, AVAILABLE_MODELS
-from src.train import train_all_models, generate_comparison_table
+from src.train import train_all_models, generate_comparison_table, plot_predictions_vs_actual
 
 
 def safe_print(msg):
@@ -57,6 +57,12 @@ def run_model_training():
 
     best = results.iloc[0]
     safe_print(f"\n  [最优单模型] {best['model']} R2={best['R2_mean']:.4f} MAE={best['MAE_mean']:,.0f}")
+
+    # 预测 vs 真实图
+    best_name = best['model'].lower().replace(' ', '_')
+    safe_print(f"\n  预测 vs 真实可视化 (最佳模型: {best_name})")
+    plot_predictions_vs_actual(best_name, X, y)
+
     safe_print(f"\n  [OK] 4.1-4.2 模型训练完成")
     return results
 

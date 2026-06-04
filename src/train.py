@@ -498,3 +498,120 @@ def plot_parameter_curves(model_name, param_configs, X, y, cv_folds=5,
         print(f"  [OK] Chart saved: {path}")
 
     return saved
+
+
+def plot_predictions_vs_actual(model_name, X, y, cv_folds=5, save_path=None,
+                                sample_size=5000, stratified=True):
+    """绘制预测值 vs 真实值散点图 + 残差分布直方图。
+
+    使用 OOF (Out-of-Fold) 预测避免数据泄露，确保评估客观。
+
+    Parameters
+    ----------
+    model_name : str
+        模型名称 (如 'lightgbm')
+    X : pd.DataFrame
+    y : array-like (原始价格)
+    cv_folds : int
+    save_path : str or None
+    sample_size : int
+        散点图采样数（数据量大时全画会重叠严重）
+    stratified : bool
+    """
+    if save_path is None:
+        os.makedirs(FIGURES_DIR, exist_ok=True)
+        save_path = os.path.join(FIGURES_DIR, 'validation_predictions_vs_actual.png')
+
+    X_arr = X.values.astype(float) if hasattr(X, 'values') else np.asarray(X, dtype=float)
+    y_arr = np.asarray(y, dtype=float)
+
+    # OOF 预测
+    if stratified:
+        folds = _make_stratified_folds(y_arr, n_splits=cv_folds, random_state=RANDOM_SEED)
+    else:
+        kf = KFold(n_splits=cv_folds, shuffle=True, random_state=RANDOM_SEED)
+        folds = list(kf.split(X_arr))
+
+    oof_preds = np.zeros(len(y_arr))
+    for train_idx, val_idx in folds:
+        X_tr, X_val = X_arr[train_idx], X_arr[val_idx]
+        y_tr = y_arr[train_idx]
+        model = UsedCarModelFactory.create_model(model_name)
+        model.fit(X_tr, np.log1p(y_tr))
+        oof_preds[val_idx] = np.expm1(model.predict(X_val))
+    oof_preds = np.maximum(oof_preds, 0)
+
+    residuals = y_arr - oof_preds
+    mae = np.mean(np.abs(residuals))
+    rmse = np.sqrt(np.mean(residuals ** 2))
+    mape = np.mean(np.abs(residuals / np.maximum(y_arr, 1))) * 100
+    r2 = r2_score(np.log1p(y_arr), np.log1p(oof_preds))
+
+    # ---- 采样散点图 ----
+    n = min(sample_size, len(y_arr))
+    idx = np.random.RandomState(RANDOM_SEED).choice(len(y_arr), size=n, replace=False)
+    y_sample, pred_sample, res_sample = y_arr[idx], oof_preds[idx], residuals[idx]
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+    # -- 左图: 预测 vs 真实散点图 --
+    ax = axes[0]
+    max_val = max(y_sample.max(), pred_sample.max()) * 1.05
+    ax.scatter(y_sample, pred_sample, alpha=0.25, s=8, c='#2F5496',
+               edgecolors='none', label=f'n={n:,} samples')
+    ax.plot([0, max_val], [0, max_val], '--', color='#C00000', linewidth=2,
+            label='y=x (完美预测)')
+    ax.fill_between([0, max_val], [0, max_val],
+                    [0, max_val * 1.15], alpha=0.06, color='red', label='高估区域')
+    ax.fill_between([0, max_val], [0, max_val * 0.85],
+                    [0, max_val], alpha=0.06, color='blue', label='低估区域')
+    ax.set_xlabel('True Price (CNY)', fontsize=12)
+    ax.set_ylabel('Predicted Price (CNY)', fontsize=12)
+    ax.set_title(f'{model_name.upper()} — Predicted vs Actual\n'
+                 f'R²={r2:.4f}  MAE={mae:,.0f}  RMSE={rmse:,.0f}  MAPE={mape:.1f}%',
+                 fontsize=13, fontweight='bold')
+    ax.legend(fontsize=9, loc='upper left')
+    ax.grid(True, linestyle=':', alpha=0.5)
+    ax.set_xlim(0, max_val)
+    ax.set_ylim(0, max_val)
+
+    # -- 右图: 残差分布直方图 --
+    ax = axes[1]
+    # 剔除极端异常值使直方图可读
+    q_low, q_high = np.percentile(residuals, [1, 99])
+    res_trimmed = residuals[(residuals >= q_low) & (residuals <= q_high)]
+    ax.hist(res_trimmed, bins=80, color='#2F5496', edgecolor='white',
+            alpha=0.85, density=True)
+    ax.axvline(x=0, color='#C00000', linewidth=2, linestyle='--', label='残差=0 (完美)')
+    ax.axvline(x=np.mean(residuals), color='#ED7D31', linewidth=2, linestyle='-',
+               label=f'均值={np.mean(residuals):,.0f}')
+    ax.set_xlabel('Residual = True − Predicted (CNY)', fontsize=12)
+    ax.set_ylabel('Density', fontsize=12)
+    ax.set_title(f'Residual Distribution ({model_name.upper()})\n'
+                 f'均值={np.mean(residuals):,.0f}  标准差={np.std(residuals):,.0f}  '
+                 f'偏度={pd.Series(residuals).skew():.2f}',
+                 fontsize=13, fontweight='bold')
+    ax.legend(fontsize=9)
+    ax.grid(True, linestyle=':', alpha=0.5)
+
+    # 文字分析
+    skew_val = pd.Series(residuals).skew()
+    if abs(skew_val) < 0.3:
+        skew_note = '残差近似对称，模型无明显系统性偏差'
+    elif skew_val > 0:
+        skew_note = '残差右偏(正残差多)→ 模型倾向低估真实价格，对高价车保守'
+    else:
+        skew_note = '残差左偏(负残差多)→ 模型倾向高估真实价格，需检查特征覆盖度'
+
+    fig.text(0.5, -0.02,
+             f'[解读] {skew_note}。散点越靠近y=x线预测越准；'
+             f'高价位区间(>5万)散点离散度增大→高价车预测不确定性更高。',
+             ha='center', fontsize=10, style='italic', color='#555555',
+             transform=fig.transFigure)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"  [OK] 预测 vs 真实图: {save_path}")
+    print(f"  [解读] {skew_note}")
+    return save_path

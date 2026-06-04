@@ -74,13 +74,58 @@ def run_preprocessing():
     safe_print(f"  筛选前: {X_train_feat.shape[1]} -> 筛选后: {X_train_sel.shape[1]} "
                f"(剔除 {X_train_feat.shape[1] - X_train_sel.shape[1]} 个)")
 
-    # ---- 持久化 ----
+    # ---- 持久化：特征矩阵 ----
     safe_print("\n[持久化] 保存特征矩阵到 data/processed/")
     os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
     train_out = X_train_sel.copy()
     train_out['log_price'] = np.log1p(y_train_raw).reset_index(drop=True)
     train_out.to_csv(os.path.join(PROCESSED_DATA_DIR, "train_features.csv"), index=False)
     X_test_sel.to_csv(os.path.join(PROCESSED_DATA_DIR, "test_features.csv"), index=False)
+
+    # ---- 持久化：Pipeline 对象（供 FastAPI 推理使用） ----
+    import json, pickle
+    from config import MODEL_DIR
+
+    safe_print("\n[持久化] 保存 Pipeline 对象到 models/")
+    os.makedirs(MODEL_DIR, exist_ok=True)
+
+    # 1. 预处理器
+    with open(os.path.join(MODEL_DIR, 'preprocessor.pkl'), 'wb') as f:
+        pickle.dump(preprocessor, f)
+    safe_print("  [OK] preprocessor.pkl")
+
+    # 2. 特征工程器（含 brand_target_map_ / model_target_map_ / scaler）
+    with open(os.path.join(MODEL_DIR, 'feature_engineer.pkl'), 'wb') as f:
+        pickle.dump(engineer, f)
+    safe_print("  [OK] feature_engineer.pkl")
+
+    # 3. 特征选择器（含保留特征名列表）
+    with open(os.path.join(MODEL_DIR, 'feature_selector.pkl'), 'wb') as f:
+        pickle.dump(selector, f)
+    safe_print("  [OK] feature_selector.pkl")
+
+    # 4. 最终特征列名（JSON，便于调试和前端读取）
+    feature_names = X_train_sel.columns.tolist()
+    with open(os.path.join(MODEL_DIR, 'feature_names.json'), 'w', encoding='utf-8') as f:
+        json.dump(feature_names, f, ensure_ascii=False, indent=2)
+    safe_print(f"  [OK] feature_names.json ({len(feature_names)} 个特征)")
+
+    # 5. 品牌列表 + 车型映射（供前端下拉框）
+    brand_list = sorted(train_df['brand'].dropna().unique().tolist())
+    with open(os.path.join(MODEL_DIR, 'brand_list.json'), 'w', encoding='utf-8') as f:
+        json.dump(brand_list, f, ensure_ascii=False, indent=2)
+    safe_print(f"  [OK] brand_list.json ({len(brand_list)} 个品牌)")
+
+    # 车型按品牌分组（只保留样本量>=10的车型）
+    model_grouped = {}
+    for b in brand_list:
+        brand_models = train_df[train_df['brand'] == b]['model'].value_counts()
+        valid_models = brand_models[brand_models >= 10].index.tolist()
+        if valid_models:
+            model_grouped[b] = sorted(valid_models)
+    with open(os.path.join(MODEL_DIR, 'model_list.json'), 'w', encoding='utf-8') as f:
+        json.dump(model_grouped, f, ensure_ascii=False, indent=2)
+    safe_print(f"  [OK] model_list.json ({sum(len(v) for v in model_grouped.values())} 个车型)")
 
     elapsed = time.time() - start_time
     safe_print(f"\n{'=' * 60}")

@@ -68,7 +68,7 @@ node_modules/
 
 # ===================== Model files (optional — large binary files) =====================
 # Uncomment if model files are too large and can be regenerated:
-# models/*.pkl
+models/*.pkl
 
 #claude
 .claude

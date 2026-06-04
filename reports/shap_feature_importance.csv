@@ -1,0 +1,12 @@
+﻿feature,mean_abs_shap
+hp_per_year,0.2525635764439782
+milage,0.16669640891036716
+car_age_squared,0.0679348892208757
+brand_encoded,0.05274439794990241
+power_density,0.04989545364224087
+engine_hp,0.049072971647350055
+model_encoded,0.03772158155416876
+annual_milage,0.03108551673116296
+accident_status_No_Accident,0.014317798188481683
+fuel_type_Electric,0.0019816816974321753
+is_clean_title,0.0

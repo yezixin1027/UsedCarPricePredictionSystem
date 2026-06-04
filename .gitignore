@@ -10,11 +10,11 @@ wheels/
 .venv
 .claude
 
-# 忽略数据文件
-data/
-models/*.pkl
-models/*.txt
-models/*.csv
+## 忽略数据文件
+#data/
+#models/*.pkl
+#models/*.txt
+#models/*.csv
 
 # 忽略IDE配置
 .vscode/

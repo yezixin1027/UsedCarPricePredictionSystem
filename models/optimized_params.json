@@ -1,0 +1,38 @@
+{
+  "ridge": {
+    "alpha": 5.0
+  },
+  "elastic_net": {
+    "alpha": 0.01,
+    "l1_ratio": 0.1,
+    "max_iter": 5000,
+    "random_state": 42
+  },
+  "random_forest": {
+    "n_estimators": 500,
+    "max_depth": 12,
+    "min_samples_split": 5,
+    "min_samples_leaf": 2,
+    "random_state": 42,
+    "n_jobs": -1
+  },
+  "lightgbm": {
+    "num_leaves": 94,
+    "learning_rate": 0.035240102913883735,
+    "min_child_samples": 14,
+    "colsample_bytree": 0.5306905097710306,
+    "subsample": 0.7623074715989433,
+    "reg_alpha": 6.572406184977355,
+    "reg_lambda": 2.5285087745914234,
+    "n_estimators": 1000,
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": -1
+  },
+  "knn": {
+    "n_neighbors": 50,
+    "weights": "uniform",
+    "p": 2,
+    "n_jobs": -1
+  }
+}

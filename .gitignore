@@ -1,27 +1,74 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-.claude
-
-## 忽略数据文件
-#data/
-#models/*.pkl
-#models/*.txt
-#models/*.csv
-
-# 忽略IDE配置
-.vscode/
+﻿# ===================== IDE / Editor =====================
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
 
-# 临时文件
-*.docx
-~$*.docx
-docx_text_output.txt
-*.tmpcatboost_info
+# ===================== OS generated files =====================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ===================== Python =====================
+# Virtual environment
+.venv/
+venv/
+env/
+.env
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# ruff
+.ruff_cache/
+
+# ===================== Logs =====================
+*.log
+
+# ===================== Node.js (if any frontend) =====================
+node_modules/
+.vite/
+
+# ===================== Data (optional — large/raw files) =====================
+# Uncomment the following if raw data is too large or sensitive:
+# data/raw/*.csv
+# data/raw/*.xlsx
+# data/raw/*.parquet
+
+# ===================== Model files (optional — large binary files) =====================
+# Uncomment if model files are too large and can be regenerated:
+# models/*.pkl
+
+#claude
+.claude

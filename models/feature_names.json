@@ -1,0 +1,13 @@
+[
+  "milage",
+  "engine_hp",
+  "annual_milage",
+  "power_density",
+  "car_age_squared",
+  "hp_per_year",
+  "brand_encoded",
+  "model_encoded",
+  "is_clean_title",
+  "fuel_type_Electric",
+  "accident_status_No_Accident"
+]
